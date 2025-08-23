@@ -9,12 +9,12 @@ interface TypeBoxProps {
   onSelect: (id: string) => void;
 }
 
-const PRIMITIVES = ['string','number','boolean','null','undefined','any','unknown'];
+const PRIMITIVES = ['string', 'boolean', 'null', 'number', 'any', 'unknown', 'undefined'];
 
 const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) => {
   const schema = useSchema();
   const ref = useRef<HTMLDivElement | null>(null);
-  const dragInfo = useRef<{dx:number;dy:number;startX:number;startY:number}|null>(null);
+  const dragInfo = useRef<{ dx: number; dy: number; startX: number; startY: number } | null>(null);
   const [, force] = useState(0);
   const [draftName, setDraftName] = useState(data.name);
   const [kindOpen, setKindOpen] = useState(false);
@@ -22,17 +22,19 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
   const [kindCache, setKindCache] = useState<TypeKind>(data.kind);
   const [expandedProp, setExpandedProp] = useState<string | null>(null);
   const [customTypeFilter, setCustomTypeFilter] = useState('');
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   // data 변경 시 로컬 draft sync (선택 전환 등)
-  useEffect(()=>{ setDraftName(data.name); setLocalProps(data.properties); }, [data.id]);
+  useEffect(() => { setDraftName(data.name); setLocalProps(data.properties); }, [data.id]);
 
   // 선택 해제될 때 로컬 변경 사항 commit
-  useEffect(()=>{
-    if(!selected){
-      if(draftName !== data.name || localProps !== data.properties){
+  useEffect(() => {
+    if (!selected) {
+      if (draftName !== data.name || localProps !== data.properties) {
         schema.updateBox(data.id, { name: draftName, properties: localProps });
       }
       setKindOpen(false);
+      setExpandedProp(null);
     }
   }, [selected]);
 
@@ -47,7 +49,7 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
     dragInfo.current = null;
     window.removeEventListener('mousemove', handleMouseMove);
     window.removeEventListener('mouseup', handleMouseUp);
-    force(x=>x+1);
+    force(x => x + 1);
   }, [handleMouseMove]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -59,10 +61,10 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
     const isInteractive = (el: HTMLElement | null): boolean => {
       if (!el) return false;
       const tag = el.tagName;
-      if (['INPUT','TEXTAREA','BUTTON','SELECT','LABEL'].includes(tag)) return true;
+      if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT', 'LABEL'].includes(tag)) return true;
       if (el.isContentEditable) return true;
       const role = el.getAttribute('role');
-      if (role && ['button','textbox','checkbox','switch','radio','combobox'].includes(role)) return true;
+      if (role && ['button', 'textbox', 'checkbox', 'switch', 'radio', 'combobox'].includes(role)) return true;
       if (el.closest('input,textarea,button,select,[contenteditable="true"], [role="textbox"], [role="button"]')) return true;
       return false;
     };
@@ -80,7 +82,7 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
   }, [data.id, data.position.x, data.position.y, onSelect, handleMouseMove, handleMouseUp]);
 
 
-  const border = selected ? 'border-indigo-400 ring-2 ring-indigo-300' : 'border-slate-200 hover:border-slate-300';
+  const border = selected ? 'border-slate-700 ring-2 ring-slate-300' : 'border-slate-200 hover:border-slate-300';
 
   const commitProp = (id: string, partial: Partial<Property>) => {
     setLocalProps(list => list.map(p => p.id === id ? { ...p, ...partial } : p));
@@ -92,10 +94,10 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
     setExpandedProp(newProp.id);
   };
 
-  const toggleOptional = (id: string) => commitProp(id, { optional: !localProps.find(p=>p.id===id)?.optional });
-  const toggleReadonly = (id: string) => commitProp(id, { readonly: !localProps.find(p=>p.id===id)?.readonly });
+  const toggleOptional = (id: string) => commitProp(id, { optional: !localProps.find(p => p.id === id)?.optional });
+  const toggleReadonly = (id: string) => commitProp(id, { readonly: !localProps.find(p => p.id === id)?.readonly });
 
-  const changeKind = (k: TypeKind) => { 
+  const changeKind = (k: TypeKind) => {
     schema.updateBox(data.id, { kind: k });
     setKindCache(k);
     setKindOpen(false);
@@ -104,26 +106,38 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
   const customTypes = Object.values(schema.boxes).filter(b => b.id !== data.id).map(b => b.name);
   const filteredCustomTypes = customTypes.filter(t => t.toLowerCase().includes(customTypeFilter.toLowerCase()));
 
+  const handleKindButtonClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setKindOpen(o => !o);
+    setExpandedProp(null);
+  };
+  const handleTypeButtonClick = (isExpanded: boolean, propId: string) => {
+    setExpandedProp(isExpanded ? null : propId);
+    setKindOpen(false);
+  };
+
   return (
     <div
       ref={ref}
       onMouseDown={handleMouseDown}
-      className={`group absolute bg-white/90 backdrop-blur rounded-lg shadow border ${border} cursor-move select-none px-4 pt-4 pb-3 transition`}
-      style={{ left: data.position.x, top: data.position.y }}
+      className={`absolute bg-slate-50/80 backdrop-blur rounded-xl shadow-lg border ${border} cursor-move select-none px-6 pt-5.5 pb-6.5 transition`}
+      style={{ left: data.position.x, top: data.position.y, minWidth: 200, zIndex: selected ? 30 : 10 }}
     >
-      <div className="flex items-start justify-between mb-3 gap-4">
+      <div className="flex items-center justify-between ml-0.5 mb-4.5 gap-3">
         <input
           value={draftName}
-          onChange={e=>setDraftName(e.target.value)}
-          className="text-xl font-mono font-bold tracking-tight text-slate-700 bg-transparent border-b border-transparent focus:border-indigo-400 focus:outline-none px-0.5"
-          style={{ width: `${Math.max(draftName.length, 2)+0.3}ch` }}
+          onChange={e => setDraftName(e.target.value)}
+          className="text-2xl font-mono font-bold tracking-tight text-slate-700 bg-transparent border-b border-transparent focus:border-slate-400 focus:outline-none px-0.5"
+          style={{ width: `${Math.max(draftName.length, 2) + 0.3}ch` }}
         />
         <div className="relative shrink-0">
-          <button onClick={(e)=>{e.stopPropagation();setKindOpen(o=>!o);}} className="text-sm px-2.5 pt-[2.7px] pb-[5px] rounded-full bg-slate-800 text-white font-medium capitalize hover:bg-slate-700 whitespace-nowrap">{kindCache}</button>
+          <button onClick={(e) => handleKindButtonClick(e)} className="text-base px-2.5 pt-[2.7px] pb-[5px] rounded-full bg-slate-500 text-white font-mono capitalize hover:bg-slate-600 whitespace-nowrap shadow transition-colors"
+          style={{ boxShadow: '0 2px 8px rgba(60,60,100,0.10)'}}
+          >{kindCache}</button>
           {kindOpen && (
             <div className="absolute z-20 mt-1 left-0 w-32 rounded-lg border border-slate-200 bg-white shadow p-1 flex flex-col text-sm">
-              {['interface','type','enum','alias'].map(k => (
-                <button key={k} onClick={()=>changeKind(k as TypeKind)} className="text-left px-2 py-1 rounded hover:bg-slate-100 capitalize">
+              {['interface', 'type', 'enum', 'alias'].map(k => (
+                <button key={k} onClick={() => changeKind(k as TypeKind)} className="text-left px-2 py-1 rounded hover:bg-slate-100 capitalize">
                   {k}
                 </button>
               ))}
@@ -131,62 +145,89 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
           )}
         </div>
       </div>
-      <ul className="space-y-1 max-w-xs">
+      <ul className="space-y-4">
         {localProps.map(p => {
           const isExpanded = expandedProp === p.id;
           return (
-            <li key={p.id} className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs relative">
-              <div className="flex items-center gap-2">
+            <div key={p.id} 
+              onMouseEnter={() => setHoveredId(p.id)}
+              onMouseLeave={() => setHoveredId(null)}
+              className="relative flex">
+              <div className={`relative w-fit flex items-center px-4 py-1.5 rounded-full border border-slate-100 bg-white text-xs font-mono`}
+                style={{ boxShadow: '0 2px 8px rgba(60,60,100,0.10)' }}
+              >
+                <div className='group'>
+                <button onClick={() => toggleOptional(p.id)} className={`absolute -left-2.5 -top-1.5 text-sm px-2 py-0.5 rounded-full transition-all ${p.optional ? 'opacity-100 bg-slate-400 text-white' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'} shadow ${hoveredId === p.id ? 'opacity-100' : 'opacity-0'}`}>?
+                </button>
+                  <span className="z-50 absolute -bottom-2 left-0 -translate-x-1/2 px-2 py-1 rounded bg-black text-white text-sm opacity-0 invisible group-hover:visible group-hover:opacity-100 transition-opacity group-hover:delay-1000 whitespace-nowrap">
+                    Optional property
+                  </span>
+                  </div>
                 <input
                   value={p.name}
-                  onChange={e=>commitProp(p.id,{ name: e.target.value })}
-                  className="bg-transparent text-lg font-mono font-normal w-24 border-b border-transparent focus:border-indigo-400 focus:outline-none"
+                  onChange={e => commitProp(p.id, { name: e.target.value })}
+                  className="bg-transparent text-lg font-mono font-normal border-b border-transparent focus:border-slate-400 focus:outline-none mx-1"
+                  style={{ width: `${Math.max(p.name.length, 2) + 0.3}ch` }}
                 />
-                <button onClick={()=>setExpandedProp(isExpanded?null:p.id)} className="ml-auto text-sm px-1.5 py-0.5 rounded bg-slate-300 text-slate-700 hover:bg-slate-400">{p.type}</button>
-                <button onClick={()=>toggleOptional(p.id)} className={`text-sm px-1.5 py-0.5 rounded ${p.optional? 'bg-indigo-600 text-white':'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>?</button>
-                <button onClick={()=>toggleReadonly(p.id)} className={`text-sm px-1.5 py-0.5 rounded ${p.readonly? 'bg-pink-600 text-white':'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>ro</button>
+                <div className='relative overflow-visible'>
+                  <button
+                    onClick={() => handleTypeButtonClick(isExpanded, p.id)}
+                    className="absolute left-0 -top-2 text-sm pl-2 pr-2.5 py-1 -tracking-wider rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300 shadow whitespace-nowrap border border-slate-200 transition-all"
+                    style={{ boxShadow: '0 2px 8px rgba(60,60,100,0.10)' }}
+                  >
+                    {p.type}
+                  </button>
+                </div>
               </div>
               {isExpanded && (
-                <div className="mt-2 bg-white rounded-lg border border-slate-200 p-2 space-y-2 shadow-inner">
+                <div className="absolute left-0 top-11 min-w-[280px] bg-white/90 backdrop-blur rounded-xl border border-slate-200 p-3 space-y-2 shadow z-30"
+                style={{ boxShadow: '0 8px 32px rgba(60,60,100,0.18)' }}>
                   <div>
-                    <div className="text-sm font-medium mb-1 text-slate-500">기본 타입</div>
-                    <div className="flex flex-wrap gap-1">
+                    <div className='flex items-center justify-between mb-2'>
+                      <div className="text-base font-medium text-slate-500 ml-0.5">기본 타입</div>
+                      <button onClick={() => toggleReadonly(p.id)} className={`text-sm px-2 py-0.5 rounded-full ${p.readonly ? 'bg-pink-600 text-white' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'} shadow`}>ro</button>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mb-3">
                       {PRIMITIVES.map(t => (
-                        <button key={t} onClick={()=>{commitProp(p.id,{ type: t }); setExpandedProp(null);}} className={`px-2 py-0.5 rounded text-sm border ${t===p.type? 'bg-indigo-600 text-white border-indigo-600':'bg-slate-100 border-slate-200 hover:bg-slate-200'}`}>{t}</button>
+                        <button key={t} onClick={() => { commitProp(p.id, { type: t }); setExpandedProp(null); }} className={`font-mono px-2.5 py-1 rounded-full text-base border ${t === p.type ? 'bg-slate-600 text-white border-slate-600' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'}`}>{t}</button>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm font-medium mb-1 text-slate-500 flex items-center gap-2">커스텀 타입<input value={customTypeFilter} onChange={e=>setCustomTypeFilter(e.target.value)} placeholder="filter" className="bg-slate-50 border border-slate-200 rounded px-1 py-0.5 text-sm" /></div>
-                    <div className="flex flex-wrap gap-1 max-h-24 overflow-auto pr-1">
+                    <div className="text-base font-medium mb-1 text-slate-500 flex items-center gap-2">
+                      <span className='flex whitespace-nowrap ml-0.5'>커스텀 타입</span>
+                      <input value={customTypeFilter} onChange={e => setCustomTypeFilter(e.target.value)} placeholder="filter" className="flex-1 bg-slate-50 border border-slate-200 rounded px-1 py-0 text-base focus:outline-none focus:border-slate-400"
+                      style={{ width: "70px" }} />
+                    </div>
+                    <div className="font-mono flex flex-wrap gap-1 max-h-24 overflow-auto pr-1 mb-4">
                       {filteredCustomTypes.map(t => (
-                        <button key={t} onClick={()=>{commitProp(p.id,{ type: t }); setExpandedProp(null);}} className={`px-2 py-0.5 rounded text-sm border ${t===p.type? 'bg-indigo-600 text-white border-indigo-600':'bg-white border-slate-200 hover:bg-slate-100'}`}>{t}</button>
+                        <button key={t} onClick={() => { commitProp(p.id, { type: t }); setExpandedProp(null); }} className={`px-2.5 py-1 rounded-full text-base border ${t === p.type ? 'bg-slate-600 text-white border-slate-600' : 'bg-white border-slate-200 hover:bg-slate-100'}`}>{t}</button>
                       ))}
-                      {filteredCustomTypes.length === 0 && <span className="text-sm text-slate-400">없음</span>}
+                      {filteredCustomTypes.length === 0 && <span className="text-base text-slate-400">없음</span>}
                     </div>
                   </div>
                   <div>
                     <textarea
                       value={p.comment || ''}
-                      onChange={e=>commitProp(p.id,{ comment: e.target.value })}
+                      onChange={e => commitProp(p.id, { comment: e.target.value })}
                       placeholder="주석/설명"
-                      className="w-full text-sm bg-slate-50 border border-slate-200 rounded p-1 resize-none h-14 focus:outline-none focus:border-indigo-400"
+                      className="w-full text-base bg-slate-50 border border-slate-200 rounded p-1.5 resize-none h-18 focus:outline-none focus:border-slate-300"
                     />
                   </div>
                 </div>
               )}
-            </li>
+              <span className="text-transparent font-mono">{p.type}</span>
+            </div>
           );
         })}
-      </ul>
-      <div className="flex gap-2 mt-3">
         <button
-          className="w-6 h-6 flex items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-500 hover:text-slate-700 hover:border-slate-400 transition"
+          className="w-9 h-9 flex items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-all shadow"
           title="속성 추가"
-          onClick={(e)=>{e.stopPropagation(); addProperty();}}
+          onClick={(e) => { e.stopPropagation(); addProperty(); }}
+          style={{ boxShadow: '0 2px 8px rgba(60,60,100,0.10)' }}
         >+
         </button>
-      </div>
+      </ul>
     </div>
   );
 };

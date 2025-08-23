@@ -20,7 +20,7 @@ export function useSchemaGraph(): SchemaContextValue {
       properties: partial?.properties || [
         { id: nanoid(), name: 'id', type: 'string' },
         { id: nanoid(), name: 'name', type: 'string' },
-        { id: nanoid(), name: 'test', type: 'ㅗㅗ' }
+        { id: nanoid(), name: 'test', type: 'ohohoh' }
       ],
     //   position: { x: 120 + graph.order.length * 40, y: 120 },
       position: { x: 0, y: 0 },
