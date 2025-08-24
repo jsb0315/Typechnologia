@@ -29,14 +29,21 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
 
   // 선택 해제될 때 로컬 변경 사항 commit
   useEffect(() => {
-    if (!selected) {
-      if (draftName !== data.name || localProps !== data.properties) {
-        schema.updateBox(data.id, { name: draftName, properties: localProps });
-      }
+    // if (!selected) {
+    //   if (draftName !== data.name || localProps !== data.properties) {
+    //     schema.updateBox(data.id, { name: draftName, properties: localProps });
+    //   }
       setKindOpen(false);
       setExpandedProp(null);
-    }
+    // }
   }, [selected]);
+
+  useEffect(()=> {
+    if (draftName !== data.name || localProps !== data.properties) {
+      schema.updateBox(data.id, { name: draftName, properties: localProps });
+    }
+    console.log(data)
+  }, [localProps, draftName]);
 
   // Delete 키 제거 로직은 Canvas에서 다중 선택과 함께 처리
 
@@ -60,7 +67,7 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
     onSelect(data.id, e);
 
   const target = e.target as HTMLElement;
-  if (target.closest('input,textarea,button,select,[contenteditable="true"],label')) return;
+  if (target.closest('input,textarea,button,select,[contenteditable="true"],label') && selected) return;
 
     const rect = ref.current?.getBoundingClientRect();
     dragInfo.current = {
@@ -175,7 +182,7 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
       style={{ left: data.position.x, top: data.position.y, minWidth: 200, zIndex: selected ? 30 : 10 }}
     >
       <button
-        className={`absolute -top-3.5 w-7 h-7 rounded-full bg-slate-50 border border-slate-300 text-slate-600 hover:bg-red-400 hover:text-slate-50 hover:border-slate-200 transition-all shadow font-mono hover:opacity-100  ${selected ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute -top-3.5 w-7 h-7 rounded-full bg-slate-50 border border-slate-300 text-slate-600 hover:bg-red-400 hover:text-slate-50 hover:border-slate-200 transition-all shadow font-mono  ${selected ? 'opacity-100' : 'opacity-0 hidden'}`}
         onClick={(e) => {
           e.stopPropagation();
           schema.removeBox(data.id);
@@ -308,9 +315,11 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
                     </div>
                     <div className="font-mono flex flex-wrap gap-1 max-h-24 overflow-auto pr-1 mb-4">
                       {/* Custom Type - 자기자신 */}
-                      <button
+                      {draftName.toLowerCase().includes(customTypeFilter.toLowerCase()) && (
+                        <button
                         onClick={() => handleTypeSelect('custom', draftName, p)}
                         className={`px-2.5 py-1 rounded-full text-base border ${p.type.kind === 'custom' && p.type.name === draftName || (p.type.kind === 'builtIn' && p.type.genericArgs && p.type.genericArgs.some(arg => (arg as any).name === draftName)) ? 'bg-slate-600 text-white border-slate-600' : 'bg-white border-slate-200 hover:bg-slate-100'}`}>{draftName}</button>
+                      )}
                       {/* Custom Type - 나머지 */}
                       {filteredCustomTypes.map(t => {
                         const active =
@@ -356,13 +365,13 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
             style={{ boxShadow: '0 2px 8px rgba(60,60,100,0.05)' }}
           >+
           </button>
-          <button
+          {/* <button
             className="w-9 h-9 flex items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-all shadow"
             title="속성 추가"
             onClick={(e) => { e.stopPropagation(); addProperty(); }}
             style={{ boxShadow: '0 2px 8px rgba(60,60,100,0.05)' }}
           >+
-          </button>
+          </button> */}
         </div>
       </ul>
     </div>

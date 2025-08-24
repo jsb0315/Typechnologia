@@ -27,7 +27,7 @@ export function propertyTypeToTs(t: PropertyType): string {
           if (args.length === 1 && ['primitive', 'custom', 'builtIn'].includes(args[0].kind)) {
             return propertyTypeToTs(args[0]) + '[]';
           }
-          return `Array<${args.map(propertyTypeToTs).join(', ')}>`;
+          return `(${args.map(propertyTypeToTs).join(' | ')})[]`;
         case 'Tuple':
           return `[${args.map(propertyTypeToTs).join(', ')}]`;
         case 'Set':

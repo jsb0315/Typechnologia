@@ -1,11 +1,17 @@
 import React, { useEffect, useCallback } from 'react';
 import { useSchema } from '../../App';
 import TypeBox from './TypeBox';
+import FloatingDrawer from '../Drawer/FloatingDrawer';
 
 const Canvas: React.FC = () => {
   const schema = useSchema();
 
-  const handleBackgroundClick = useCallback(() => schema.select(null), [schema]);
+  // 배경 클릭 시만 선택 해제 (버튼/입력 요소 제외)
+  const handleBackgroundMouseDown = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button, textarea, input, [contenteditable="true"]')) return; // 인터랙티브 요소 클릭은 무시
+    schema.select(null);
+  }, [schema]);
 
   const handleSelectBox = useCallback((id: string, e: React.MouseEvent) => {
     const additive = e.ctrlKey || e.metaKey; // ctrl(Mac meta) + click
@@ -39,9 +45,10 @@ const Canvas: React.FC = () => {
   }, [schema]);
 
   return (
-    <div className="w-full h-full relative select-none" onMouseDown={handleBackgroundClick}>
+  <div className="w-full h-full relative select-none" onMouseDown={handleBackgroundMouseDown}>
+      <FloatingDrawer />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,#e2e8f0_1px,transparent_0)] [background-size:32px_32px]" />
-      <div className="absolute top-5 left-6 z-10 px-4 py-2 rounded-xl bg-white/80 backdrop-blur border border-slate-200 shadow-lg text-sm font-semibold tracking-tight text-slate-700">
+      <div className="absolute top-5 left-6 z-50 px-4 py-2 rounded-xl bg-white/80 backdrop-blur border border-slate-200 shadow-lg text-sm font-semibold tracking-tight text-slate-700">
         TypeScript 타입 & 인터페이스 매니저
       </div>
       {schema.order.map(id => {

@@ -2,7 +2,6 @@ import React, { createContext, useContext } from 'react';
 import './App.css';
 import Canvas from './components/Canvas/Canvas';
 import Toolbar from './components/Toolbar/Toolbar';
-import FloatingDrawer from './components/Drawer/FloatingDrawer';
 import FloatingTutorial from './components/Tutorial/FloatingTutorial';
 import { useSchemaGraph } from './hooks/useSchemaGraph';
 import type { SchemaContextValue } from './types/TypeSchema';
@@ -29,7 +28,6 @@ function App() {
           <Canvas />
         </div>
       </SchemaProvider>
-      <FloatingDrawer />
       <FloatingTutorial />
     </div>
   );
