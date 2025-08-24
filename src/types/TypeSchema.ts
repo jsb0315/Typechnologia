@@ -1,10 +1,25 @@
 // 기본 데이터 모델 (프로토타입)
 export type TypeKind = 'interface' | 'type' | 'enum' | 'alias';
 
+// 기본 Type 종류 (TS 프리미티브 + any/unknown 확장)
+export type PrimitiveType = 'string' | 'number' | 'boolean' | 'null' | 'undefined' | 'any' | 'unknown';
+// 빌트인 컨테이너 / 구조 타입 (Generic 은 추후 <T> 표현용 placeholder)
+export type BuiltInType = 'Array' | 'Object' | 'Generic' | 'Tuple' | 'Set' | 'Map';
+export type CustomType = { name: string; typeDef: any }; // interface/type 이름 및 정의
+// Property Type 규칙
+// PropertyType: UI <-> TS 소스코드 양방향 변환을 위한 구조화 타입 정의
+export type PropertyType =
+  | { kind: 'primitive'; name: PrimitiveType }
+  | { kind: 'custom'; name: string }
+  | { kind: 'union'; types: PropertyType[] }
+  | { kind: 'intersection'; types: PropertyType[] }
+  | { kind: 'builtIn'; name: BuiltInType; genericArgs?: PropertyType[] };
+
+
 export interface Property {
   id: string;
   name: string;
-  type: string;
+  type: PropertyType; // 구조화된 타입 표현
   optional?: boolean;
   readonly?: boolean;
   comment?: string;
@@ -42,6 +57,7 @@ export interface SchemaActions {
   updatePosition: (id: string, x: number, y: number) => void;
   select: (id: string | null) => void;
   updateBox: (id: string, partial: Partial<Omit<TypeBoxModel, 'id' | 'createdAt'>>) => void;
+  removeBox: (id: string) => void;
 }
 
 export interface SchemaContextValue extends SchemaGraph, SchemaState, SchemaActions {}
@@ -58,4 +74,5 @@ export interface SchemaActionsContext {
   updatePosition: (id: string, x: number, y: number) => void;
   select: (id: string | null) => void;
   updateBox: (id: string, partial: Partial<Omit<TypeBoxModel, 'id' | 'createdAt'>>) => void;
+  removeBox: (id: string) => void;
 }

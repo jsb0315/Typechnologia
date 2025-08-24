@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, useMemo } from 'react';
-import type { SchemaGraph, TypeBoxModel, SchemaContextValue } from '../types/TypeSchema';
+import type { SchemaGraph, TypeBoxModel, SchemaContextValue, Property } from '../types/TypeSchema';
 import { nanoid } from '../utils/id';
 
 const now = () => Date.now();
@@ -11,17 +11,52 @@ export function useSchemaGraph(): SchemaContextValue {
   const [selection, setSelection] = useState<string | null>(null);
   const dirty = useRef(false);
 
+    const removeBox = useCallback((id: string) => {
+      setGraph(g => {
+        if (!g.boxes[id]) return g;
+        const { [id]: _, ...restBoxes } = g.boxes;
+        const newOrder = g.order.filter(boxId => boxId !== id);
+        // If the removed box was selected, clear selection
+        if (selection === id) setSelection(null);
+        return {
+          ...g,
+          boxes: restBoxes,
+          order: newOrder,
+          updatedAt: now()
+        };
+      });
+      dirty.current = true;
+    }, [selection]);
+  // 레거시(Property.type 이 string) -> 구조화 PropertyType 변환
+  const normalizeProps = (props?: Property[]): Property[] => {
+    if (!props) return [];
+    return props.map(p => {
+      const t: any = p.type as any;
+      if (typeof t === 'string') {
+        const primitiveSet = new Set(['string','number','boolean','null','undefined','any','unknown']);
+        const structured = primitiveSet.has(t)
+          ? { kind: 'primitive', name: t }
+          : { kind: 'custom', name: t };
+        return { ...p, type: structured } as Property;
+      }
+      return p;
+    });
+  };
+
   const addType = useCallback((partial?: Partial<Pick<TypeBoxModel, 'name' | 'kind' | 'properties'>>) => {
     const id = nanoid();
+    const baseProps: Property[] = partial?.properties
+      ? normalizeProps(partial.properties as any)
+      : [
+          { id: nanoid(), name: 'id', type: { kind: 'primitive', name: 'string' } },
+          { id: nanoid(), name: 'name', type: { kind: 'primitive', name: 'string' } },
+          { id: nanoid(), name: 'test', type: { kind: 'custom', name: 'hello' } }
+        ];
     const model: TypeBoxModel = {
       id,
       name: partial?.name || `NewType${graph.order.length + 1}`,
       kind: partial?.kind || 'type',
-      properties: partial?.properties || [
-        { id: nanoid(), name: 'id', type: 'string' },
-        { id: nanoid(), name: 'name', type: 'string' },
-        { id: nanoid(), name: 'test', type: 'ohohoh' }
-      ],
+      properties: baseProps,
     //   position: { x: 120 + graph.order.length * 40, y: 120 },
       position: { x: 0, y: 0 },
       createdAt: now(),
@@ -74,7 +109,8 @@ export function useSchemaGraph(): SchemaContextValue {
     updatePosition,
     select,
     updateBox,
-  }), [graph, selection, addType, updatePosition, select, updateBox]);
+    removeBox,
+  }), [graph, selection, addType, updatePosition, select, updateBox, removeBox]);
 
   return value;
 }
