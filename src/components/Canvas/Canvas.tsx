@@ -7,7 +7,12 @@ const Canvas: React.FC = () => {
 
   const handleBackgroundClick = useCallback(() => schema.select(null), [schema]);
 
-  // N 키로 타입 추가
+  const handleSelectBox = useCallback((id: string, e: React.MouseEvent) => {
+    const additive = e.ctrlKey || e.metaKey; // ctrl(Mac meta) + click
+    schema.select(id, { additive });
+  }, [schema]);
+
+  // 키보드 단축키: N 새 타입 / ESC 선택 해제 / Delete 선택 모두 삭제
   useEffect(() => {
     const isEditing = () => {
       const el = document.activeElement as HTMLElement | null;
@@ -23,6 +28,10 @@ const Canvas: React.FC = () => {
         schema.addType();
       } else if (e.key === 'Escape') {
         schema.select(null);
+      } else if (e.key === 'Delete') {
+        if (schema.selection.length) {
+          schema.removeBoxes(schema.selection);
+        }
       }
     };
     window.addEventListener('keydown', handler);
@@ -37,13 +46,14 @@ const Canvas: React.FC = () => {
       </div>
       {schema.order.map(id => {
         const box = schema.boxes[id];
+        const selected = schema.selection.includes(id);
         return (
           <TypeBox
             key={id}
             data={box}
-            selected={schema.selection === id}
+            selected={selected}
             onDrag={schema.updatePosition}
-            onSelect={schema.select}
+            onSelect={(bid: string, e) => handleSelectBox(bid, e)}
           />
         );
       })}

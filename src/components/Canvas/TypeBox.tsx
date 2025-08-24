@@ -1,63 +1,15 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import type { TypeBoxModel, Property, TypeKind, PropertyType, PrimitiveType, BuiltInType } from '../../types/TypeSchema';
 import { useSchema } from '../../App';
-import { build } from 'vite';
+import { PRIMITIVES, CONTAINERS, propertyTypeToLabel, makeLeafType, makeBuiltInType } from './typeUtils';
 
 interface TypeBoxProps {
   data: TypeBoxModel;
   selected: boolean;
   onDrag: (id: string, x: number, y: number) => void;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, e: React.MouseEvent) => void; // ctrl/meta additive selection 지원
 }
 
-const PRIMITIVES: PrimitiveType[] = ['string', 'boolean', 'null', 'number', 'any', 'unknown', 'undefined'];
-const CONTAINERS: BuiltInType[] = ['Array', 'Tuple', 'Set', 'Map', 'Object'];
-
-// PropertyType -> 표시 문자열
-function propertyTypeToLabel(t: PropertyType): string {
-  switch (t.kind) {
-    case 'primitive':
-    case 'custom':
-      return t.name;
-    case 'union':
-      return t.types.map(propertyTypeToLabel).join(' | ');
-    case 'intersection':
-      return t.types.map(propertyTypeToLabel).join(' & ');
-    case 'builtIn': {
-      const args = t.genericArgs?.map(propertyTypeToLabel) ?? [];
-      switch (t.name) {
-        case 'Array':
-          return args.length > 1 ? `(${args.join(' | ')})[]` : args[0] + '[]';
-        case 'Tuple':
-          return `[${args.join(', ')}]`;
-        case 'Set':
-          return `Set<${args.length ? args[0] : 'unknown'}>`;
-        case 'Map':
-          return `Map<${args.length >= 2 ? `${args[0]}, ${args[1]}` : 'unknown, unknown'}>`;
-        case 'Object':
-          return `Record<${args.length >= 2 ? `${args[0]}, ${args[1]}` : 'string, unknown'}>`;
-        default:
-          return t.name;
-      }
-    }
-    default:
-      return '';
-  }
-}
-
-// primitive/custom 문자열 -> PropertyType
-function makeLeafType(name: string): PropertyType {
-  if (PRIMITIVES.includes(name as any)) return { kind: 'primitive', name: name as any };
-  return { kind: 'custom', name };
-}
-
-// 빈 배열, 단일, 다중 선택 케이스 처리용
-function makeBuiltInType(name: 'Array'|'Tuple'|'Set', selectedNames: string[]): PropertyType {
-  const survived: string[] = name === 'Array' ? Array.from(new Set(selectedNames))
-  : name === 'Set' ? [selectedNames[0]] : selectedNames;
-  if (selectedNames.length === 0) return { kind: 'builtIn', name: name, genericArgs: [{ kind: 'primitive', name: 'any' }] };
-  return { kind: 'builtIn', name: name, genericArgs: survived.map(n => makeLeafType(n)) };
-}
 
 const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) => {
   const schema = useSchema();
@@ -86,6 +38,8 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
     }
   }, [selected]);
 
+  // Delete 키 제거 로직은 Canvas에서 다중 선택과 함께 처리
+
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!dragInfo.current) return;
     const nx = e.clientX - dragInfo.current.dx;
@@ -103,20 +57,10 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return; // 좌클릭만
     e.stopPropagation();
-    onSelect(data.id);
+    onSelect(data.id, e);
 
-    const target = e.target as HTMLElement;
-    const isInteractive = (el: HTMLElement | null): boolean => {
-      if (!el) return false;
-      const tag = el.tagName;
-      if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT', 'LABEL'].includes(tag)) return true;
-      if (el.isContentEditable) return true;
-      const role = el.getAttribute('role');
-      if (role && ['button', 'textbox', 'checkbox', 'switch', 'radio', 'combobox'].includes(role)) return true;
-      if (el.closest('input,textarea,button,select,[contenteditable="true"], [role="textbox"], [role="button"]')) return true;
-      return false;
-    };
-    if (isInteractive(target)) return; // 편집/버튼 클릭 시 드래그 시작 안 함
+  const target = e.target as HTMLElement;
+  if (target.closest('input,textarea,button,select,[contenteditable="true"],label')) return;
 
     const rect = ref.current?.getBoundingClientRect();
     dragInfo.current = {

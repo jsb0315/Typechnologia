@@ -8,7 +8,7 @@ const emptyGraph = (): SchemaGraph => ({ boxes: {}, order: [], version: 1, updat
 
 export function useSchemaGraph(): SchemaContextValue {
   const [graph, setGraph] = useState<SchemaGraph>(emptyGraph);
-  const [selection, setSelection] = useState<string | null>(null);
+  const [selection, setSelection] = useState<string[]>([]);
   const dirty = useRef(false);
 
     const removeBox = useCallback((id: string) => {
@@ -16,17 +16,28 @@ export function useSchemaGraph(): SchemaContextValue {
         if (!g.boxes[id]) return g;
         const { [id]: _, ...restBoxes } = g.boxes;
         const newOrder = g.order.filter(boxId => boxId !== id);
-        // If the removed box was selected, clear selection
-        if (selection === id) setSelection(null);
-        return {
-          ...g,
-          boxes: restBoxes,
-          order: newOrder,
-          updatedAt: now()
-        };
+        setSelection(sel => sel.filter(sid => sid !== id));
+        return { ...g, boxes: restBoxes, order: newOrder, updatedAt: now() };
       });
       dirty.current = true;
-    }, [selection]);
+    }, []);
+
+    const removeBoxes = useCallback((ids: string[]) => {
+      if (!ids.length) return;
+      setGraph(g => {
+        const restBoxes = { ...g.boxes };
+        let changed = false;
+        ids.forEach(id => {
+          if (restBoxes[id]) { delete restBoxes[id]; changed = true; }
+        });
+        if (!changed) return g;
+        const idSet = new Set(ids);
+        const newOrder = g.order.filter(bid => !idSet.has(bid));
+        setSelection(sel => sel.filter(sid => !idSet.has(sid)));
+        return { ...g, boxes: restBoxes, order: newOrder, updatedAt: now() };
+      });
+      dirty.current = true;
+    }, []);
   // 레거시(Property.type 이 string) -> 구조화 PropertyType 변환
   const normalizeProps = (props?: Property[]): Property[] => {
     if (!props) return [];
@@ -69,7 +80,7 @@ export function useSchemaGraph(): SchemaContextValue {
       order: [...g.order, id],
       updatedAt: now()
     }));
-    setSelection(id);
+  setSelection([id]);
     dirty.current = true;
     return model;
   }, [graph.order.length]);
@@ -87,7 +98,15 @@ export function useSchemaGraph(): SchemaContextValue {
     dirty.current = true;
   }, []);
 
-  const select = useCallback((id: string | null) => setSelection(id), []);
+  const select = useCallback((id: string | null, options?: { additive?: boolean }) => {
+    setSelection(prev => {
+      if (id === null) return [];
+      if (!options?.additive) return [id];
+      const exists = prev.includes(id);
+      if (exists) return prev.filter(x => x !== id); // 토글 해제
+      return [...prev, id];
+    });
+  }, []);
 
   const updateBox = useCallback((id: string, partial: Partial<Omit<TypeBoxModel, 'id' | 'createdAt'>>) => {
     setGraph(g => {
@@ -110,7 +129,8 @@ export function useSchemaGraph(): SchemaContextValue {
     select,
     updateBox,
     removeBox,
-  }), [graph, selection, addType, updatePosition, select, updateBox, removeBox]);
+    removeBoxes,
+  }), [graph, selection, addType, updatePosition, select, updateBox, removeBox, removeBoxes]);
 
   return value;
 }

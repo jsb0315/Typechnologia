@@ -49,15 +49,18 @@ export interface SchemaGraph {
 export interface SchemaState {
   boxes: Record<string, TypeBoxModel>;
   order: string[];
-  selection: string | null;
+  // 다중 선택: 선택된 TypeBox id 배열 (빈 배열이면 선택 없음)
+  selection: string[];
 }
 
 export interface SchemaActions {
   addType: (partial?: Partial<Pick<TypeBoxModel, 'name' | 'kind' | 'properties'>>) => TypeBoxModel;
   updatePosition: (id: string, x: number, y: number) => void;
-  select: (id: string | null) => void;
+  // 단일 선택 혹은 additive 토글 (Ctrl/Meta 클릭 시 additive=true)
+  select: (id: string | null, options?: { additive?: boolean }) => void;
   updateBox: (id: string, partial: Partial<Omit<TypeBoxModel, 'id' | 'createdAt'>>) => void;
   removeBox: (id: string) => void;
+  removeBoxes: (ids: string[]) => void;
 }
 
 export interface SchemaContextValue extends SchemaGraph, SchemaState, SchemaActions {}
@@ -66,13 +69,14 @@ export interface SchemaContextValue extends SchemaGraph, SchemaState, SchemaActi
 export interface SchemaStateContext {
   boxes: Record<string, TypeBoxModel>;
   order: string[];
-  selection: string | null;
+  selection: string[];
 }
 
 export interface SchemaActionsContext {
   addType: (partial?: Partial<Pick<TypeBoxModel, 'name' | 'kind' | 'properties'>>) => TypeBoxModel;
   updatePosition: (id: string, x: number, y: number) => void;
-  select: (id: string | null) => void;
+  select: (id: string | null, options?: { additive?: boolean }) => void;
   updateBox: (id: string, partial: Partial<Omit<TypeBoxModel, 'id' | 'createdAt'>>) => void;
   removeBox: (id: string) => void;
+  removeBoxes: (ids: string[]) => void;
 }
