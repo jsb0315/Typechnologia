@@ -80,3 +80,16 @@ export interface SchemaActionsContext {
   removeBox: (id: string) => void;
   removeBoxes: (ids: string[]) => void;
 }
+
+// New split-value types (버전/updatedAt 포함 실시간 변경 최소화 목적)
+export interface SchemaStateValue {
+  boxes: Record<string, TypeBoxModel>;
+  order: string[];
+  selection: string[];
+  version: number;
+  updatedAt: number;
+}
+
+export interface SchemaActionsValue extends SchemaActions {}
+
+export interface SchemaStore { state: SchemaStateValue; actions: SchemaActionsValue }

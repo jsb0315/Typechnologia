@@ -1,43 +1,43 @@
 import { useCallback, useRef, useState, useMemo } from 'react';
-import type { SchemaGraph, TypeBoxModel, SchemaContextValue, Property } from '../types/TypeSchema';
+import type { SchemaGraph, TypeBoxModel, Property, SchemaStateValue, SchemaActionsValue, SchemaStore } from '../types/TypeSchema';
 import { nanoid } from '../utils/id';
 
 const now = () => Date.now();
 
 const emptyGraph = (): SchemaGraph => ({ boxes: {}, order: [], version: 1, updatedAt: now() });
 
-export function useSchemaGraph(): SchemaContextValue {
+export function useSchemaGraph(): SchemaStore {
   const [graph, setGraph] = useState<SchemaGraph>(emptyGraph);
   const [selection, setSelection] = useState<string[]>([]);
   const dirty = useRef(false);
 
-    const removeBox = useCallback((id: string) => {
-      setGraph(g => {
-        if (!g.boxes[id]) return g;
-        const { [id]: _, ...restBoxes } = g.boxes;
-        const newOrder = g.order.filter(boxId => boxId !== id);
-        setSelection(sel => sel.filter(sid => sid !== id));
-        return { ...g, boxes: restBoxes, order: newOrder, updatedAt: now() };
-      });
-      dirty.current = true;
-    }, []);
+  const removeBox = useCallback((id: string) => {
+    setGraph(g => {
+      if (!g.boxes[id]) return g;
+      const { [id]: _, ...restBoxes } = g.boxes;
+      const newOrder = g.order.filter(boxId => boxId !== id);
+      setSelection(sel => sel.filter(sid => sid !== id));
+      return { ...g, boxes: restBoxes, order: newOrder, updatedAt: now() };
+    });
+    dirty.current = true;
+  }, []);
 
-    const removeBoxes = useCallback((ids: string[]) => {
-      if (!ids.length) return;
-      setGraph(g => {
-        const restBoxes = { ...g.boxes };
-        let changed = false;
-        ids.forEach(id => {
-          if (restBoxes[id]) { delete restBoxes[id]; changed = true; }
-        });
-        if (!changed) return g;
-        const idSet = new Set(ids);
-        const newOrder = g.order.filter(bid => !idSet.has(bid));
-        setSelection(sel => sel.filter(sid => !idSet.has(sid)));
-        return { ...g, boxes: restBoxes, order: newOrder, updatedAt: now() };
+  const removeBoxes = useCallback((ids: string[]) => {
+    if (!ids.length) return;
+    setGraph(g => {
+      const restBoxes = { ...g.boxes };
+      let changed = false;
+      ids.forEach(id => {
+        if (restBoxes[id]) { delete restBoxes[id]; changed = true; }
       });
-      dirty.current = true;
-    }, []);
+      if (!changed) return g;
+      const idSet = new Set(ids);
+      const newOrder = g.order.filter(bid => !idSet.has(bid));
+      setSelection(sel => sel.filter(sid => !idSet.has(sid)));
+      return { ...g, boxes: restBoxes, order: newOrder, updatedAt: now() };
+    });
+    dirty.current = true;
+  }, []);
   // 레거시(Property.type 이 string) -> 구조화 PropertyType 변환
   const normalizeProps = (props?: Property[]): Property[] => {
     if (!props) return [];
@@ -56,20 +56,16 @@ export function useSchemaGraph(): SchemaContextValue {
 
   const addType = useCallback((partial?: Partial<Pick<TypeBoxModel, 'name' | 'kind' | 'properties'>>) => {
     const id = nanoid();
-    const baseProps: Property[] = partial?.properties
-      ? normalizeProps(partial.properties as any)
-      : [
-          { id: nanoid(), name: 'id', type: { kind: 'primitive', name: 'string' } },
-          { id: nanoid(), name: 'name', type: { kind: 'primitive', name: 'string' } },
-          { id: nanoid(), name: 'test', type: { kind: 'custom', name: 'hello' } }
-        ];
     const model: TypeBoxModel = {
       id,
       name: partial?.name || `NewType${graph.order.length + 1}`,
       kind: partial?.kind || 'type',
-      properties: baseProps,
-    //   position: { x: 120 + graph.order.length * 40, y: 120 },
-      position: { x: 0, y: 0 },
+      properties: (partial?.properties ? normalizeProps(partial.properties as any) : [
+        { id: nanoid(), name: 'id', type: { kind: 'primitive', name: 'string' } },
+        { id: nanoid(), name: 'name', type: { kind: 'primitive', name: 'string' } },
+        { id: nanoid(), name: 'test', type: { kind: 'custom', name: 'hello' } }
+      ]),
+      position: { x: 350, y: 80 },
       createdAt: now(),
       updatedAt: now(),
       extends: []
@@ -80,7 +76,7 @@ export function useSchemaGraph(): SchemaContextValue {
       order: [...g.order, id],
       updatedAt: now()
     }));
-  setSelection([id]);
+    setSelection([id]);
     dirty.current = true;
     return model;
   }, [graph.order.length]);
@@ -119,18 +115,23 @@ export function useSchemaGraph(): SchemaContextValue {
   }, []);
 
 
-  const value: SchemaContextValue = useMemo(() => ({
-    ...graph,
+  // Split state & actions to allow separate contexts -> fewer re-renders for action-only consumers
+  const state: SchemaStateValue = useMemo(() => ({
     boxes: graph.boxes,
     order: graph.order,
     selection,
+    version: graph.version,
+    updatedAt: graph.updatedAt,
+  }), [graph.boxes, graph.order, graph.version, graph.updatedAt, selection]);
+
+  const actions: SchemaActionsValue = useMemo(() => ({
     addType,
     updatePosition,
     select,
     updateBox,
     removeBox,
     removeBoxes,
-  }), [graph, selection, addType, updatePosition, select, updateBox, removeBox, removeBoxes]);
+  }), [addType, updatePosition, select, updateBox, removeBox, removeBoxes]);
 
-  return value;
+  return { state, actions };
 }

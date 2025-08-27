@@ -50,7 +50,7 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!dragInfo.current) return;
     const nx = e.clientX - dragInfo.current.dx;
-    const ny = e.clientY - dragInfo.current.dy - 70;
+    const ny = e.clientY - dragInfo.current.dy;
     onDrag(data.id, nx, ny);
   }, [onDrag, data.id]);
 

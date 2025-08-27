@@ -1,22 +1,22 @@
 import React, { useEffect, useCallback } from 'react';
-import { useSchema } from '../../App';
+import { useSchemaState, useSchemaActions } from '../../App';
 import TypeBox from './TypeBox';
-import FloatingDrawer from '../Drawer/FloatingDrawer';
 
 const Canvas: React.FC = () => {
-  const schema = useSchema();
+  const state = useSchemaState();
+  const actions = useSchemaActions();
 
   // 배경 클릭 시만 선택 해제 (버튼/입력 요소 제외)
   const handleBackgroundMouseDown = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest('button, textarea, input, [contenteditable="true"]')) return; // 인터랙티브 요소 클릭은 무시
-    schema.select(null);
-  }, [schema]);
+    actions.select(null);
+  }, [actions]);
 
   const handleSelectBox = useCallback((id: string, e: React.MouseEvent) => {
     const additive = e.ctrlKey || e.metaKey; // ctrl(Mac meta) + click
-    schema.select(id, { additive });
-  }, [schema]);
+    actions.select(id, { additive });
+  }, [actions]);
 
   // 키보드 단축키: N 새 타입 / ESC 선택 해제 / Delete 선택 모두 삭제
   useEffect(() => {
@@ -31,35 +31,31 @@ const Canvas: React.FC = () => {
     const handler = (e: KeyboardEvent) => {
       if (isEditing()) return; // 입력 중에는 단축키 무시
       if (e.key === 'n' || e.key === 'N') {
-        schema.addType();
+        actions.addType();
       } else if (e.key === 'Escape') {
-        schema.select(null);
+        actions.select(null);
       } else if (e.key === 'Delete') {
-        if (schema.selection.length) {
-          schema.removeBoxes(schema.selection);
+        if (state.selection.length) {
+          actions.removeBoxes(state.selection);
         }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [schema]);
+  }, [state.selection, actions]);
 
   return (
-  <div className="w-full h-full relative select-none" onMouseDown={handleBackgroundMouseDown}>
-      <FloatingDrawer />
+    <div className="w-full h-full relative select-none" onMouseDown={handleBackgroundMouseDown}>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,#e2e8f0_1px,transparent_0)] [background-size:32px_32px]" />
-      <div className="absolute top-5 left-6 z-50 px-4 py-2 rounded-xl bg-white/80 backdrop-blur border border-slate-200 shadow-lg text-sm font-semibold tracking-tight text-slate-700">
-        TypeScript 타입 & 인터페이스 매니저
-      </div>
-      {schema.order.map(id => {
-        const box = schema.boxes[id];
-        const selected = schema.selection.includes(id);
+      {state.order.map(id => {
+        const box = state.boxes[id];
+        const selected = state.selection.includes(id);
         return (
           <TypeBox
             key={id}
             data={box}
             selected={selected}
-            onDrag={schema.updatePosition}
+            onDrag={actions.updatePosition}
             onSelect={(bid: string, e) => handleSelectBox(bid, e)}
           />
         );

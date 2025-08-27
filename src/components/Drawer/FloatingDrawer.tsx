@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { useSchema } from '../../App';
+import { useSchemaState, useSchemaActions } from '../../App';
 import { boxToTypeScript, parseBoxFromCode } from '../../utils/typeCodegen';
 
 type Mode = 'idle' | 'export' | 'import';
@@ -32,23 +32,24 @@ function parseMultipleBoxes(src: string) {
 }
 
 const FloatingDrawer: React.FC = () => {
-  const schema = useSchema();
+  const state = useSchemaState();
+  const actions = useSchemaActions();
   const [mode, setMode] = useState<Mode>('idle');
   const [exportCode, setExportCode] = useState('');
   const [importCode, setImportCode] = useState('');
   const [importResult, setImportResult] = useState<string | null>(null);
 
   const handleExport = useCallback(() => {
-    const ids = schema.selection.length ? schema.selection : schema.order; // 선택 없으면 전체
+  const ids = state.selection.length ? state.selection : state.order; // 선택 없으면 전체
     if (!ids.length) {
       setExportCode('// 내보낼 타입이 없습니다.');
       setMode('export');
       return;
     }
-    const code = ids.map(id => boxToTypeScript(schema.boxes[id])).join('\n\n');
+  const code = ids.map(id => boxToTypeScript(state.boxes[id])).join('\n\n');
     setExportCode(code);
     setMode('export');
-  }, [schema]);
+  }, [state]);
 
   const handleImport = useCallback(() => {
     setMode(m => (m === 'import' ? 'idle' : 'import'));
@@ -64,7 +65,7 @@ const FloatingDrawer: React.FC = () => {
     parsed.forEach(p => {
       try {
         // 1단계: 기본 addType
-        const model = schema.addType({ name: (p as any).name, kind: (p as any).kind, properties: (p as any).properties });
+  const model = actions.addType({ name: (p as any).name, kind: (p as any).kind, properties: (p as any).properties });
         // 2단계: 확장 필드 업데이트 (union/intersection/extends/comment)
         const patch: any = {};
         if ((p as any).unionTypes) patch.unionTypes = (p as any).unionTypes;
@@ -72,7 +73,7 @@ const FloatingDrawer: React.FC = () => {
         if ((p as any).extends) patch.extends = (p as any).extends;
         if ((p as any).comment) patch.comment = (p as any).comment;
         if (Object.keys(patch).length) {
-          schema.updateBox(model.id, patch);
+          actions.updateBox(model.id, patch);
         }
         created++;
       } catch (e) {
@@ -84,7 +85,7 @@ const FloatingDrawer: React.FC = () => {
       setImportCode('');
       setMode('idle');
     }
-  }, [importCode, schema]);
+  }, [importCode, actions]);
 
   const copyExport = useCallback(() => {
     if (!exportCode) return;
@@ -92,7 +93,8 @@ const FloatingDrawer: React.FC = () => {
   }, [exportCode]);
 
   return (
-    <div className="absolute right-6 top-5 w-80 rounded-2xl border border-slate-200 bg-white/90 backdrop-blur shadow-[0_8px_30px_rgba(0,0,0,0.08)] p-5 z-50 space-y-3">
+    <div className="w-80 rounded-2xl border border-slate-200 bg-white/90 backdrop-blur p-5 z-50 space-y-3"
+        style={{ boxShadow: '0 2px 8px rgba(135,135,135,0.1)' }}>
       <div className="font-semibold text-slate-700">Import / Export Hub</div>
       <div className="flex gap-2">
         <button onClick={handleImport} className={`flex-1 h-10 text-base rounded-xl font-medium shadow transition ${mode==='import' ? 'bg-slate-700 text-white' : 'bg-slate-900 text-white hover:bg-slate-800 active:scale-[.97]'}`}>Import</button>

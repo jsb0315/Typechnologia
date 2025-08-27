@@ -1,21 +1,20 @@
 import React from 'react';
-import { useSchema } from '../../App';
+import { useSchemaActions } from '../../App';
 
   // 전역 SchemaContext 사용
   const Toolbar: React.FC = () => {
-    const schema = useSchema();
+  const actions = useSchemaActions();
   return (
-    <div className="sticky top-0 z-40 w-full px-4 pt-4">
-      <div className="w-full flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08),0_2px_4px_-1px_rgba(0,0,0,0.06)] p-2">
-          <button onClick={() => schema.addType()} className="h-9 px-4 rounded-xl bg-slate-800 text-white text-sm font-medium shadow hover:bg-slate-950 active:scale-[.97] transition">+ Type</button>
-          <button onClick={() => console.log('EXPORT_GRAPH', schema)} className="h-9 px-4 rounded-xl bg-slate-500 text-white text-sm font-medium shadow hover:bg-slate-600 active:scale-[.97] transition">Export</button>
-        <div className="flex-1" />
-        <div className="flex items-center gap-1 text-xs text-slate-500">
-          <kbd className="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 font-medium">N</kbd>
-          <span className="text-slate-400">New Type</span>
-          <kbd className="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 font-medium ml-3">E</kbd>
-          <span className="text-slate-400">Export</span>
-        </div>
+    <div className="w-full flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/50 backdrop-blur supports-[backdrop-filter]:bg-white/60 p-2"
+    style={{ boxShadow: '0 2px 8px rgba(135,135,135,0.15)' }}>
+        <button onClick={() => actions.addType()} className="h-9 px-4 rounded-xl bg-slate-800 text-white text-sm font-medium shadow hover:bg-slate-950 active:scale-[.97] transition">+ Type</button>
+        <button onClick={() => console.log('EXPORT_GRAPH')} className="h-9 px-4 rounded-xl bg-slate-500 text-white text-sm font-medium shadow hover:bg-slate-600 active:scale-[.97] transition">Export</button>
+      <div className="flex-1" />
+      <div className="flex items-center gap-1 text-xs text-slate-500">
+        <kbd className="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 font-medium">N</kbd>
+        <span className="text-slate-400">New Type</span>
+        <kbd className="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 font-medium ml-3">E</kbd>
+        <span className="text-slate-400">Export</span>
       </div>
     </div>
   );
