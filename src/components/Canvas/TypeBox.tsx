@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
-import type { TypeBoxModel, Property, TypeKind, PropertyType, PrimitiveType, BuiltInType } from '../../types/TypeSchema';
+import type { TypeBoxModel, Property, TypeKind } from '../../types/TypeSchema';
 import { useSchema } from '../../App';
-import { PRIMITIVES, CONTAINERS, propertyTypeToLabel, makeLeafType, makeBuiltInType } from './typeUtils';
+import { propertyTypeToLabel } from './typeUtils';
 
 interface TypeBoxProps {
   data: TypeBoxModel;
@@ -16,34 +16,25 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
   const ref = useRef<HTMLDivElement | null>(null);
   const dragInfo = useRef<{ dx: number; dy: number; startX: number; startY: number } | null>(null);
   const [, force] = useState(0);
-  const [draftName, setDraftName] = useState(data.name);
   const [kindOpen, setKindOpen] = useState(false);
-  const [localProps, setLocalProps] = useState<Property[]>(data.properties);
-  const [kindCache, setKindCache] = useState<TypeKind>(data.kind);
   const [expandedProp, setExpandedProp] = useState<string | null>(null);
-  const [customTypeFilter, setCustomTypeFilter] = useState('');
+  // property editing moved to InspectorPanel
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [typeString, setTypeString] = useState<Record<string, string>>({});
 
-  // data 변경 시 로컬 draft sync (선택 전환 등)
-  useEffect(() => { setDraftName(data.name); setLocalProps(data.properties); }, [data.id]);
-
-  // 선택 해제될 때 로컬 변경 사항 commit
+  // 선택 변경 시 UI 패널 닫기
   useEffect(() => {
-    // if (!selected) {
-    //   if (draftName !== data.name || localProps !== data.properties) {
-    //     schema.updateBox(data.id, { name: draftName, properties: localProps });
-    //   }
-      setKindOpen(false);
-      setExpandedProp(null);
-    // }
+    setKindOpen(false);
+    setExpandedProp(null);
   }, [selected]);
 
-  useEffect(()=> {
-    if (draftName !== data.name || localProps !== data.properties) {
-      schema.updateBox(data.id, { name: draftName, properties: localProps });
-    }
-    console.log(data)
-  }, [localProps, draftName]);
+  useEffect(() => {
+    const newTypeString: Record<string, string> = {};
+    data.properties.forEach(p => {
+      newTypeString[p.id] = propertyTypeToLabel(p.type as any);
+    });
+    setTypeString(newTypeString);
+  }, [data.properties]);
 
   // Delete 키 제거 로직은 Canvas에서 다중 선택과 함께 처리
 
@@ -64,10 +55,11 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return; // 좌클릭만
     e.stopPropagation();
-    onSelect(data.id, e);
+    if (!selected)
+      onSelect(data.id, e);
 
-  const target = e.target as HTMLElement;
-  if (target.closest('input,textarea,button,select,[contenteditable="true"],label') && selected) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('input,textarea,button,select,[contenteditable="true"],label') && selected) return;
 
     const rect = ref.current?.getBoundingClientRect();
     dragInfo.current = {
@@ -84,26 +76,30 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
   const border = selected ? 'border-slate-700 ring-2 ring-slate-300' : 'border-slate-200 hover:border-slate-300';
 
   const commitProp = (id: string, partial: Partial<Property>) => {
-    setLocalProps(list => list.map(p => p.id === id ? { ...p, ...partial } : p));
+    const updated = data.properties.map(p => p.id === id ? { ...p, ...partial } : p);
+    schema.updateBox(data.id, { properties: updated });
+  };
+
+  const handlePropNameChange = (id: string, value: string) => {
+    commitProp(id, { name: value });
   };
 
   const addProperty = () => {
     const newProp: Property = { id: Math.random().toString(36).slice(2), name: 'field', type: { kind: 'primitive', name: 'string' } };
-    setLocalProps(l => [...l, newProp]);
+    const updated = [...data.properties, newProp];
+    schema.updateBox(data.id, { properties: updated });
     setExpandedProp(newProp.id);
   };
 
-  const toggleOptional = (id: string) => commitProp(id, { optional: !localProps.find(p => p.id === id)?.optional });
-  const toggleReadonly = (id: string) => commitProp(id, { readonly: !localProps.find(p => p.id === id)?.readonly });
+  const toggleOptional = (id: string) => commitProp(id, { optional: !data.properties.find(p => p.id === id)?.optional });
+  // readonly toggle handled in InspectorPanel
 
   const changeKind = (k: TypeKind) => {
     schema.updateBox(data.id, { kind: k });
-    setKindCache(k);
     setKindOpen(false);
   };
 
-  const customTypes = Object.values(schema.boxes).filter(b => b.id !== data.id).map(b => b.name);
-  const filteredCustomTypes = customTypes.filter(t => t.toLowerCase().includes(customTypeFilter.toLowerCase()));
+  // custom types handled in InspectorPanel
 
   const handleKindButtonClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -115,64 +111,12 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
     setKindOpen(false);
   };
 
-  const extractSimpleTypeNames = (t: PropertyType): string[] => {
-    if (t.kind === 'primitive' || t.kind === 'custom') return [t.name];
-    if (t.kind === 'builtIn') {
-    return (t.genericArgs ?? [])
-      .filter(a => a.kind === 'primitive' || a.kind === 'custom')
-      .map(a => a.name);
-    }
-    return [];
-  };
+  // moved helpers to InspectorPanel
 
   // (기본|커스텀) 타입 버튼 클릭 공통 처리
-  const handleTypeSelect = (kind: "primitive" | "custom", name: string, prop: Property) => {
-    if (prop.type.kind === 'builtIn') {
-      const BuiltinType = prop.type.name;
-      const chgArg = makeLeafType(name);
-      let args = prop.type.genericArgs ?? [];
-      if (prop.type.name === 'Array'){
-        const exists = args.some(arg => JSON.stringify(arg) === JSON.stringify(chgArg));
-        if (exists) {
-          args = args.filter(arg => JSON.stringify(arg) !== JSON.stringify(chgArg));
-        } else {
-          args.push(chgArg);
-        }
-      } else if (prop.type.name === 'Tuple') {
-        args.push(chgArg);
-      } else if (prop.type.name === 'Set') {
-        args = [chgArg]; // Set은 단일 타입만
-      }
-      commitProp(prop.id, { type: { kind: 'builtIn', name: BuiltinType, genericArgs: args } });
-    }
-    else {
-      if (kind === 'primitive') {
-        commitProp(prop.id, { type: { kind: 'primitive', name: name as PrimitiveType } });
-      } else {
-        commitProp(prop.id, { type: { kind: 'custom', name } });
-      }
-      setExpandedProp(null);
-    }
-  };
+  // type selection handled in InspectorPanel
 
-  const handleTypeBuild = (t: BuiltInType, prop: Property) => {
-    // [] / Tuple 전용 처리: 추가 선택 UI는 추후 확장 (지금은 기본/단일 예시)
-    const baseArg: string[] = extractSimpleTypeNames(prop.type);
-
-    if ((prop.type.kind === 'builtIn') && prop.type.name === t) {
-      const leaf = baseArg[0];
-      if (leaf) {
-        commitProp(prop.id, { type: makeLeafType(leaf) });
-      }
-    }
-    else if (t !== 'Map' && t !== 'Object' && t !== 'Generic' ) {
-      commitProp(prop.id, { type: makeBuiltInType(t, baseArg) });
-    } else {
-      // Map / Object 등 일반 builtIn
-      commitProp(prop.id, { type: { kind: 'builtIn', name: t as any } });
-    }
-    // setExpandedProp(null);
-  }
+  // type build handled in InspectorPanel
 
   return (
     <div
@@ -193,15 +137,15 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
       <div className="flex w-full items-center ml-0.5 mb-4.5 gap-2
       ">
         <input
-          value={draftName}
-          onChange={e => setDraftName(e.target.value)}
+          value={data.name}
+          onChange={e => schema.updateBox(data.id, { name: e.target.value })}
           className="text-2xl font-mono font-bold tracking-tight text-slate-700 bg-transparent border-b border-transparent focus:border-slate-400 focus:outline-none px-0.5"
-          style={{ width: `${Math.max(draftName.length, 2) + 0.3}ch` }}
+          style={{ width: `${Math.max(data.name.length, 2) + 0.3}ch` }}
         />
         <div className="relative shrink-0">
           <button onClick={(e) => handleKindButtonClick(e)} className="text-base px-2.5 pt-[2.7px] pb-[5px] rounded-full bg-slate-500 text-white font-mono capitalize hover:bg-slate-600 whitespace-nowrap shadow transition-colors"
             style={{ boxShadow: '0 2px 8px rgba(60,60,100,0.10)' }}
-          >{kindCache}</button>
+          >{data.kind}</button>
           {kindOpen && (
             <div className="absolute z-20 mt-1 left-0 w-32 rounded-lg border border-slate-200 bg-white shadow p-1 flex flex-col text-sm">
               {['interface', 'type', 'enum', 'alias'].map(k => (
@@ -214,18 +158,21 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
         </div>
       </div>
       <ul className=" w-full space-y-4">
-        {localProps.map(p => {
+        {data.properties.map(p => {
           const isExpanded = expandedProp === p.id;
+          const isSelectedProp = schema.propertySelection === p.id;
+          // setTypeString(prev => ({ ...prev, [p.id]: propertyTypeToLabel(p.type as any) }));
           return (
             <div key={p.id}
               onMouseEnter={() => setHoveredId(p.id)}
               onMouseLeave={() => setHoveredId(null)}
-              className="relative flex w-full items-center">
-              <div className={`relative w-fit flex items-center px-4 py-1.5 rounded-full border border-slate-300/70 bg-white text-xs font-mono`}
-                style={{ boxShadow: '0 2px 8px rgba(60,60,100,0.05)' }}
+              className="relative flex w-full items-center"
+              onClick={(e) => { e.stopPropagation(); schema.selectProperty && schema.selectProperty(p.id); }}>
+              <div className={`relative w-fit flex items-center px-4 py-1.5 rounded-full border ${isSelectedProp ? 'border-slate-300 ring-2 ring-slate-300' : 'border-slate-200'} bg-white text-xs font-mono transition-shadow`}
+                style={{ boxShadow: isSelectedProp ? '0 0px 8px rgba(60,60,100,0.3)' : '0 0px 8px rgba(60,60,100,0.05)' }}
               >
                 <div className='group'>
-                  {selected && (
+                  {(p.optional || selected) && (
                     <button onClick={() => toggleOptional(p.id)} className={`absolute -left-2.5 -top-1.5 text-sm px-2 py-0.5 rounded-full transition-all ${p.optional ? 'opacity-100 bg-slate-400 text-white' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'} shadow ${hoveredId === p.id ? 'opacity-100' : 'opacity-0'}`}>?
                     </button>
                   )}
@@ -235,7 +182,7 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
                 </div>
                 <input
                   value={p.name}
-                  onChange={e => commitProp(p.id, { name: e.target.value })}
+                  onChange={e => handlePropNameChange(p.id, e.target.value)}
                   className="bg-transparent text-lg font-mono font-normal border-b border-transparent focus:border-slate-400 focus:outline-none mx-1"
                   style={{ width: `${Math.max(p.name.length, 2) + 0.3}ch` }}
                 />
@@ -243,113 +190,22 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
                   <button
                     onClick={() => handleTypeButtonClick(isExpanded, p.id)}
                     className="absolute left-0 -top-2 text-sm pl-2 pr-2.5 py-1 -tracking-wider rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300 shadow whitespace-nowrap border border-slate-400/40 transition-all"
-                    style={{ boxShadow: '0 2px 8px rgba(60,60,100,0.05)' }}
+                    style={{ boxShadow: isSelectedProp ? '0 0px 8px rgba(60,60,100,0.3)' : '0 0px 8px rgba(60,60,100,0.05)' }}
                   >
-                    {propertyTypeToLabel(p.type as any)}
+                    {typeString[p.id]}
                   </button>
                 </div>
               </div>
-              {isExpanded && (
-                <div className="absolute left-0 top-11 w-[220px] bg-white rounded-xl border border-slate-200 p-3 space-y-2 shadow z-30"
-                  style={{ boxShadow: '0 8px 32px rgba(60,60,100,0.1)' }}>
-                  <div>
-                    <div className='flex items-center justify-between mb-2'>
-                      <div className="text-base font-medium text-slate-500 ml-0.5">기본 타입</div>
-                      <button onClick={() => toggleReadonly(p.id)} className={`text-sm px-2 py-0.5 rounded-full ${p.readonly ? 'bg-pink-600 text-white' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'} shadow`}>read only</button>
-                    </div>
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {PRIMITIVES.map(t => {
-                        const active =
-                          (p.type.kind === 'primitive' && p.type.name === t) ||
-                          (p.type.kind === 'builtIn'
-                            && p.type.genericArgs
-                            && p.type.genericArgs.some(arg =>
-                              (arg as any).name === t
-                            ));
-                        return (
-                          <button
-                            key={t}
-                            onClick={() => handleTypeSelect('primitive', t, p)}
-                            className={`font-mono px-2.5 py-1 rounded-full text-base border ${active ? 'bg-slate-600 text-white border-slate-600' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'}`}>{t}</button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div>
-                    <div className='flex items-center justify-between mb-2'>
-                      <div className="text-base font-medium text-slate-500 ml-0.5">컬렉션/매핑 타입</div>
-                        <button
-                        onClick={() => {
-                          if (p.type.kind === 'builtIn') {
-                          const args = [...(p.type.genericArgs || [])];
-                          args.pop();
-                          if (args.length > 0) {
-                            commitProp(p.id, { type: { ...p.type, genericArgs: args } });
-                          } else {
-                            // 모든 generic이 제거되면 any 로 폴백
-                            commitProp(p.id, { type: { kind: 'primitive', name: 'any' } });
-                          }
-                          }
-                        }}
-                        className="text-sm px-2 py-0.5 rounded-full border border-slate-200 bg-slate-100 text-slate-400 hover:bg-red-400 hover:text-slate-100 shadow transition-colors"
-                        >⬅</button>
-                    </div>
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {CONTAINERS.map(t => {
-                        const active = p.type.kind === 'builtIn' && p.type.name === t;
-                        return (
-                          <button
-                            key={t}
-                            onClick={() => handleTypeBuild(t, p)}
-                            className={`font-mono px-2.5 py-1 rounded-full text-base border ${active ? 'bg-slate-600 text-white border-slate-600' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'}`}
-                          >{t}</button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-base font-medium mb-1 text-slate-500 flex items-center gap-2">
-                      <span className='flex whitespace-nowrap ml-0.5'>커스텀 타입</span>
-                      <input value={customTypeFilter} onChange={e => setCustomTypeFilter(e.target.value)} placeholder="filter" className="flex-1 bg-slate-50 border border-slate-200 rounded px-1 py-0 text-base focus:outline-none focus:border-slate-400"
-                        style={{ width: "70px" }} />
-                    </div>
-                    <div className="font-mono flex flex-wrap gap-1 max-h-24 overflow-auto pr-1 mb-4">
-                      {/* Custom Type - 자기자신 */}
-                      {draftName.toLowerCase().includes(customTypeFilter.toLowerCase()) && (
-                        <button
-                        onClick={() => handleTypeSelect('custom', draftName, p)}
-                        className={`px-2.5 py-1 rounded-full text-base border ${p.type.kind === 'custom' && p.type.name === draftName || (p.type.kind === 'builtIn' && p.type.genericArgs && p.type.genericArgs.some(arg => (arg as any).name === draftName)) ? 'bg-slate-600 text-white border-slate-600' : 'bg-white border-slate-200 hover:bg-slate-100'}`}>{draftName}</button>
-                      )}
-                      {/* Custom Type - 나머지 */}
-                      {filteredCustomTypes.map(t => {
-                        const active =
-                          (p.type.kind === 'custom' && p.type.name === t) ||
-                          (p.type.kind === 'builtIn'
-                            && p.type.genericArgs
-                            && p.type.genericArgs.some(arg =>
-                              (arg as any).name === t
-                            ));
-                        return (
-                          <button key={t} onClick={() => handleTypeSelect('custom', t, p)} className={`px-2.5 py-1 rounded-full text-base border ${active ? 'bg-slate-600 text-white border-slate-600' : 'bg-white border-slate-200 hover:bg-slate-100'}`}>{t}</button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div>
-                    <textarea
-                      value={p.comment || ''}
-                      onChange={e => commitProp(p.id, { comment: e.target.value })}
-                      placeholder="주석/설명"
-                      className="w-full text-base bg-slate-50 border border-slate-200 rounded p-1.5 resize-none h-18 focus:outline-none focus:border-slate-300"
-                    />
-                  </div>
-                </div>
-              )}
-              <span className="text-transparent font-mono mr-4">{propertyTypeToLabel(p.type as any)}</span>
+              {/* Inspector 로 이동됨 */}
+              <span className="text-transparent font-mono mr-4">
+                    {typeString[p.id]}</span>
               {selected && (
                 <button
                   className={`absolute -right-2.5 w-6 h-6 flex items-center justify-center rounded-full border border-slate-200 bg-red-300 text-slate-100 hover:bg-red-500 transition-all shadow font-mono  ${hoveredId === p.id ? '' : 'opacity-0'}`}
-                  onClick={() => setLocalProps(list => list.filter(prop => prop.id !== p.id))}
+                  onClick={() => {
+                    const updated = data.properties.filter(prop => prop.id !== p.id);
+                    schema.updateBox(data.id, { properties: updated });
+                  }}
                   title="속성 삭제"
                   style={{ boxShadow: '0 2px 8px rgba(60,60,100,0.05)' }}
                 >-</button>
@@ -378,10 +234,17 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
   );
 };
 
-export default React.memo(TypeBox, (a, b) => (
-  a.data.position.x === b.data.position.x &&
-  a.data.position.y === b.data.position.y &&
-  a.selected === b.selected &&
-  a.data.name === b.data.name &&
-  a.data.properties.length === b.data.properties.length
-));
+// 메모 비교: property 개수 + 각 name/optional 변경 추적
+export default React.memo(TypeBox, (a, b) => {
+  if (a.selected !== b.selected) return false;
+  if (a.data.position.x !== b.data.position.x || a.data.position.y !== b.data.position.y) return false;
+  if (a.data.name !== b.data.name) return false;
+  if (a.data.kind !== b.data.kind) return false;
+  const ap = a.data.properties; const bp = b.data.properties;
+  if (ap !== bp) return false;
+  for (let i = 0; i < ap.length; i++) {
+    const p1 = ap[i]; const p2 = bp[i];
+    if (p1.id !== p2.id || p1.name !== p2.name || !!p1.optional !== !!p2.optional) return false;
+  }
+  return true;
+});

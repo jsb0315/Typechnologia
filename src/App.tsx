@@ -2,7 +2,8 @@ import React, { createContext, useContext } from 'react';
 import './App.css';
 import Canvas from './components/Canvas/Canvas';
 import Toolbar from './components/Toolbar/Toolbar';
-import FloatingTutorial from './components/Tutorial/FloatingTutorial';
+// import FloatingTutorial from './components/Tutorial/FloatingTutorial';
+import InspectorPanel from './components/Inspector/InspectorPanel';
 import { useSchemaGraph } from './hooks/useSchemaGraph';
 import FloatingDrawer from './components/Drawer/FloatingDrawer';
 import type { SchemaStore, SchemaStateValue, SchemaActionsValue } from './types/TypeSchema';
@@ -33,6 +34,7 @@ export const useSchema = () => {
 export const SchemaProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const store: SchemaStore = useSchemaGraph();
   const combined: CombinedContext = { ...store.state, ...store.actions };
+  // console.log(store.state.boxes[store.state.selection[0]]);
   return (
     <SchemaStateContext.Provider value={store.state}>
       <SchemaActionsContext.Provider value={store.actions}>
@@ -47,32 +49,19 @@ function App() {
   return (
     <div className="w-screen h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900 relative flex flex-col">
       <SchemaProvider>
-        <div
+        {/* <div
           className='grid-container absolute top-0 z-40 w-full px-4 pt-4 grid gap-3'
           style={{
             gridTemplateColumns: 'auto 2fr auto',
             gridTemplateRows: 'auto auto auto',
-          }}
-        >
-          {/* a: div1 (row1 col1) */}
-          {/* <div
-            className="px-4 py-2 rounded-2xl bg-white/60 backdrop-blur border border-slate-200 text-sm font-semibold text-slate-700 flex items-center justify-center shadow-sm"
-            style={{ boxShadow: '0 2px 8px rgba(135,135,135,0.12)', 
-              textShadow: '0 0px 10px rgba(135, 135, 135, 0.5)'
-             }}
-          >
-            Typechnologia
-          </div> */}
-          {/* b: Toolbar (row1 col2) aligned right */}
-          {/* c: FloatingDrawer (row2 col1) */}
+          }}> */}
+          <div className='absolute w-fit h-full left-4 top-4 z-40'>
             <FloatingDrawer />
-            <div
-            className="col-start-3 row-start-2 row-span-2 px-4 py-2 rounded-2xl bg-white/60 backdrop-blur border border-slate-200 text-sm font-semibold tracking-tight text-slate-700 flex items-center justify-center shadow-sm"
-            style={{ boxShadow: '0 2px 8px rgba(135,135,135,0.12)' }}
-            >
-            Typechnologia
-            </div>
-        </div>
+          </div>
+          <div className='absolute w-fit h-full right-4 top-4 pb-8 z-40'>
+            <InspectorPanel />
+          </div>
+        {/* </div> */}
         <div className="flex-1 relative">
           <Canvas />
         </div>
@@ -82,7 +71,7 @@ function App() {
           </div>
         </div>
       </SchemaProvider>
-      <FloatingTutorial />
+      {/* <FloatingTutorial /> */}
     </div>
   );
 }

@@ -58,6 +58,7 @@ export interface SchemaActions {
   updatePosition: (id: string, x: number, y: number) => void;
   // 단일 선택 혹은 additive 토글 (Ctrl/Meta 클릭 시 additive=true)
   select: (id: string | null, options?: { additive?: boolean }) => void;
+  selectProperty?: (propId: string | null) => void;
   updateBox: (id: string, partial: Partial<Omit<TypeBoxModel, 'id' | 'createdAt'>>) => void;
   removeBox: (id: string) => void;
   removeBoxes: (ids: string[]) => void;
@@ -76,6 +77,7 @@ export interface SchemaActionsContext {
   addType: (partial?: Partial<Pick<TypeBoxModel, 'name' | 'kind' | 'properties'>>) => TypeBoxModel;
   updatePosition: (id: string, x: number, y: number) => void;
   select: (id: string | null, options?: { additive?: boolean }) => void;
+  selectProperty?: (propId: string | null) => void;
   updateBox: (id: string, partial: Partial<Omit<TypeBoxModel, 'id' | 'createdAt'>>) => void;
   removeBox: (id: string) => void;
   removeBoxes: (ids: string[]) => void;
@@ -86,10 +88,14 @@ export interface SchemaStateValue {
   boxes: Record<string, TypeBoxModel>;
   order: string[];
   selection: string[];
+  propertySelection?: string | null; // 선택된 Property id (단일)
   version: number;
   updatedAt: number;
 }
 
 export interface SchemaActionsValue extends SchemaActions {}
+
+// augment actions at runtime (extended in hook)
+declare module './TypeSchema' {}
 
 export interface SchemaStore { state: SchemaStateValue; actions: SchemaActionsValue }

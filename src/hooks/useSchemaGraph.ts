@@ -9,6 +9,7 @@ const emptyGraph = (): SchemaGraph => ({ boxes: {}, order: [], version: 1, updat
 export function useSchemaGraph(): SchemaStore {
   const [graph, setGraph] = useState<SchemaGraph>(emptyGraph);
   const [selection, setSelection] = useState<string[]>([]);
+  const [propertySelection, setPropertySelection] = useState<string | null>(null);
   const dirty = useRef(false);
 
   const removeBox = useCallback((id: string) => {
@@ -56,16 +57,26 @@ export function useSchemaGraph(): SchemaStore {
 
   const addType = useCallback((partial?: Partial<Pick<TypeBoxModel, 'name' | 'kind' | 'properties'>>) => {
     const id = nanoid();
+    const centerPos = (() => {
+      if (typeof window !== 'undefined') {
+      return {
+        x: Math.round(window.innerWidth / 3),
+        y: Math.round(window.innerHeight / 4),
+      };
+      }
+      return { x: 0, y: 0 };
+    })();
+
     const model: TypeBoxModel = {
       id,
       name: partial?.name || `NewType${graph.order.length + 1}`,
       kind: partial?.kind || 'type',
       properties: (partial?.properties ? normalizeProps(partial.properties as any) : [
-        { id: nanoid(), name: 'id', type: { kind: 'primitive', name: 'string' } },
-        { id: nanoid(), name: 'name', type: { kind: 'primitive', name: 'string' } },
-        { id: nanoid(), name: 'test', type: { kind: 'custom', name: 'hello' } }
+      { id: nanoid(), name: 'id', type: { kind: 'primitive', name: 'string' } },
+      { id: nanoid(), name: 'name', type: { kind: 'primitive', name: 'string' } },
+      { id: nanoid(), name: 'test', type: { kind: 'custom', name: 'hello' } }
       ]),
-      position: { x: 350, y: 80 },
+      position: centerPos,
       createdAt: now(),
       updatedAt: now(),
       extends: []
@@ -102,6 +113,12 @@ export function useSchemaGraph(): SchemaStore {
       if (exists) return prev.filter(x => x !== id); // 토글 해제
       return [...prev, id];
     });
+    // 박스 선택이 바뀌면 property 선택 해제
+    if (!options?.additive) setPropertySelection(null);
+  }, []);
+
+  const selectProperty = useCallback((propId: string | null) => {
+    setPropertySelection(propId);
   }, []);
 
   const updateBox = useCallback((id: string, partial: Partial<Omit<TypeBoxModel, 'id' | 'createdAt'>>) => {
@@ -120,18 +137,20 @@ export function useSchemaGraph(): SchemaStore {
     boxes: graph.boxes,
     order: graph.order,
     selection,
+    propertySelection,
     version: graph.version,
     updatedAt: graph.updatedAt,
-  }), [graph.boxes, graph.order, graph.version, graph.updatedAt, selection]);
+  }), [graph.boxes, graph.order, graph.version, graph.updatedAt, selection, propertySelection]);
 
   const actions: SchemaActionsValue = useMemo(() => ({
     addType,
     updatePosition,
     select,
+    selectProperty,
     updateBox,
     removeBox,
     removeBoxes,
-  }), [addType, updatePosition, select, updateBox, removeBox, removeBoxes]);
+  }), [addType, updatePosition, select, selectProperty, updateBox, removeBox, removeBoxes]);
 
   return { state, actions };
 }
