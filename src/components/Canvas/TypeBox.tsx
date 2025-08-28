@@ -55,10 +55,12 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return; // 좌클릭만
     e.stopPropagation();
-    if (!selected)
-      onSelect(data.id, e);
 
     const target = e.target as HTMLElement;
+    
+    if (!target.closest('.prop') || !selected)
+      onSelect(data.id, e);
+
     if (target.closest('input,textarea,button,select,[contenteditable="true"],label') && selected) return;
 
     const rect = ref.current?.getBoundingClientRect();
@@ -85,7 +87,7 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
   };
 
   const addProperty = () => {
-    const newProp: Property = { id: Math.random().toString(36).slice(2), name: 'field', type: { kind: 'primitive', name: 'string' } };
+    const newProp: Property = { id: Math.random().toString(36).slice(2), name: 'field', typePattern: 'object', type: { kind: 'primitive', name: 'string' } };
     const updated = [...data.properties, newProp];
     schema.updateBox(data.id, { properties: updated });
     setExpandedProp(newProp.id);
@@ -157,7 +159,7 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
           )}
         </div>
       </div>
-      <ul className=" w-full space-y-4">
+      <ul className="prop w-full space-y-4">
         {data.properties.map(p => {
           const isExpanded = expandedProp === p.id;
           const isSelectedProp = schema.propertySelection === p.id;
@@ -166,7 +168,7 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
             <div key={p.id}
               onMouseEnter={() => setHoveredId(p.id)}
               onMouseLeave={() => setHoveredId(null)}
-              className="relative flex w-full items-center"
+              className="relative flex items-center w-full"
               onClick={(e) => { e.stopPropagation(); schema.selectProperty && schema.selectProperty(p.id); }}>
               <div className={`relative w-fit flex items-center px-4 py-1.5 rounded-full border ${isSelectedProp ? 'border-slate-300 ring-2 ring-slate-300' : 'border-slate-200'} bg-white text-xs font-mono transition-shadow`}
                 style={{ boxShadow: isSelectedProp ? '0 0px 8px rgba(60,60,100,0.3)' : '0 0px 8px rgba(60,60,100,0.05)' }}

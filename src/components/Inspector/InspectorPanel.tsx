@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useSchemaState, useSchemaActions } from '../../App';
 import type { Property, PropertyType, PrimitiveType, BuiltInType, TypeBoxModel } from '../../types/TypeSchema';
-import { PRIMITIVES, CONTAINERS, makeLeafType, makeBuiltInType } from '../Canvas/typeUtils';
+import { TYPEPATTERN, PRIMITIVES, CONTAINERS, makeLeafType, makeBuiltInType } from '../Canvas/typeUtils';
 
 const InspectorPanel: React.FC = () => {
     const state = useSchemaState();
@@ -29,7 +29,7 @@ const InspectorPanel: React.FC = () => {
 
     if (!activeBox) {
         return (
-            <div className="w-80 flex flex-col rounded-2xl border border-slate-200 bg-white/90 backdrop-blur p-5 z-50 space-y-3 text-sm text-slate-500"
+            <div className="w-80 flex flex-col rounded-2xl border border-slate-200 bg-white/90 backdrop-blur p-5 z-50 space-y-3 text-base text-slate-500"
                 style={{ boxShadow: '0 2px 8px rgba(135,135,135,0.1)' }}>
                 단일 TypeBox 를 선택하면 상세 편집 가능</div>
         );
@@ -42,11 +42,6 @@ const InspectorPanel: React.FC = () => {
     const updateProperty = (id: string, patch: Partial<Property>) => {
         const newProps = activeBox.properties.map(p => p.id === id ? { ...p, ...patch } : p);
         updateBox({ properties: newProps });
-    };
-
-    const addProperty = () => {
-        const newProp: Property = { id: Math.random().toString(36).slice(2), name: 'field', type: { kind: 'primitive', name: 'string' } } as Property;
-        updateBox({ properties: [...activeBox.properties, newProp] });
     };
 
     const removeProperty = (id: string) => {
@@ -93,74 +88,93 @@ const InspectorPanel: React.FC = () => {
 
     // Focused Property Editor
     const renderPropertyEditor = (prop: Property) => (
-        <div key={prop.id} className="rounded-lg border p-2 bg-white border-slate-200">
-            <div className="flex items-center gap-2 mb-2">
+        <div key={prop.id}>
+            <div className="flex justify-between mb-2">
                 <input
                     ref={el => { propInputRefs.current[prop.id] = el; }}
                     value={prop.name}
                     onChange={e => updateProperty(prop.id, { name: e.target.value })}
-                    className="flex-1 bg-transparent border-b border-transparent focus:border-slate-400 outline-none text-sm font-mono" />
-                <button onClick={() => removeProperty(prop.id)} className="w-6 h-6 text-xs rounded-full bg-red-500 text-white flex items-center justify-center">-</button>
+                    className="w-1/2 bg-transparent border-b border-transparent focus:border-slate-400 outline-none text-lg font-mono" />
+                <div className='flex gap-1 items-end'>
+                <button onClick={(e) => { e.stopPropagation(); updateProperty(prop.id, { optional: !prop.optional }); }}
+                    className={`font-mono text-sm px-2 py-0.5 rounded-full border ${prop.optional ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-100 border-slate-300 hover:bg-slate-200'}`}>?</button>
+                <button onClick={(e) => { e.stopPropagation(); updateProperty(prop.id, { readonly: !prop.readonly }); }}
+                    className={`font-mono text-sm px-2 py-0.5 rounded-full border ${prop.readonly ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-100 border-slate-300 hover:bg-slate-200'}`}>readonly</button>
+                </div>
             </div>
-            <div className="flex flex-wrap gap-1 mb-3">
-                {PRIMITIVES.map(t => {
-                    const active = (prop.type.kind === 'primitive' && prop.type.name === t) || (prop.type.kind === 'builtIn' && prop.type.genericArgs?.some(arg => (arg as any).name === t));
-                    return (
-                        <button key={t} onClick={() => handleTypeSelect(prop, 'primitive', t)}
-                            className={`px-2 py-0.5 rounded-full text-[11px] border ${active ? 'bg-slate-700 text-white border-slate-700' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'}`}>{t}</button>
-                    );
-                })}
+            <div className='flex flex-col gap-1 mb-3'>
+                <span className='text-sm font-medium text-slate-500'>타입 정의 패턴</span>
+                <div className="flex flex-wrap gap-1">
+                    {TYPEPATTERN.map(t => {
+                        const active = prop.typePattern === t;
+                        return (
+                            <button key={t} 
+                            onClick={() => updateProperty(prop.id, { typePattern: t })}
+                                className={`font-mono px-2 py-0.5 rounded-full text-base border ${active ? 'bg-slate-700 text-white border-slate-700' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'}`}>{t}</button>
+                        );
+                    })}
+                </div>
             </div>
-            <div className="flex flex-wrap gap-1 mb-3">
-                {CONTAINERS.map(t => {
-                    const active = prop.type.kind === 'builtIn' && prop.type.name === t;
-                    return (
-                        <button key={t} onClick={() => handleTypeBuild(prop, t)}
-                            className={`px-2 py-0.5 rounded-full text-[11px] border ${active ? 'bg-slate-700 text-white border-slate-700' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'}`}>{t}</button>
-                    );
-                })}
-                {prop.type.kind === 'builtIn' && prop.type.genericArgs && prop.type.genericArgs.length > 0 && (
-                    <button onClick={() => {
-                        if (prop.type.kind !== 'builtIn') return;
-                        const args = [...(prop.type.genericArgs || [])];
-                        args.pop();
-                        if (args.length === 0) updateProperty(prop.id, { type: { kind: 'primitive', name: 'any' } });
-                        else updateProperty(prop.id, { type: { ...prop.type, genericArgs: args } });
-                    }} className="px-2 py-0.5 rounded-full text-[11px] border bg-slate-50 hover:bg-red-400 hover:text-white">⬅</button>
-                )}
+            <div className='flex flex-col gap-1 mb-3'>
+                <span className='text-sm font-medium text-slate-500'>기본 타입</span>
+                <div className="flex flex-wrap gap-1">
+                    {PRIMITIVES.map(t => {
+                        const active = (prop.type.kind === 'primitive' && prop.type.name === t) || (prop.type.kind === 'builtIn' && prop.type.genericArgs?.some(arg => (arg as any).name === t));
+                        return (
+                            <button key={t} onClick={() => handleTypeSelect(prop, 'primitive', t)}
+                                className={`font-mono px-2 py-0.5 rounded-full text-base border ${active ? 'bg-slate-700 text-white border-slate-700' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'}`}>{t}</button>
+                        );
+                    })}
+                </div>
             </div>
-            <div className="mb-3">
-                <div className="text-[11px] font-medium text-slate-500 mb-1 flex items-center gap-2">
-                    <span>커스텀</span>
-                    <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="filter" className="bg-slate-50 border border-slate-200 rounded px-1 py-0 text-[11px] focus:outline-none" style={{ width: 70 }} />
+            <div className="flex flex-col gap-1 mb-3">
+                <div className="flex items-center justify-between">
+                    <span className='text-sm font-medium text-slate-500'>커스텀 타입</span>
+                    <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="filter" className="bg-slate-50 border border-slate-200 rounded px-1 py-0 text-sm focus:outline-none" style={{ width: 70 }} />
                 </div>
                 <div className="flex flex-wrap gap-1 max-h-20 overflow-auto pr-1">
                     {activeBox.name.toLowerCase().includes(filter.toLowerCase()) && (
                         <button onClick={() => handleTypeSelect(prop, 'custom', activeBox.name)}
-                            className={`px-2 py-0.5 rounded-full text-[11px] border ${(prop.type.kind === 'custom' && prop.type.name === activeBox.name) || (prop.type.kind === 'builtIn' && prop.type.genericArgs?.some(arg => (arg as any).name === activeBox.name)) ? 'bg-slate-700 text-white border-slate-700' : 'bg-white border-slate-200 hover:bg-slate-100'}`}>{activeBox.name}</button>
+                            className={`font-mono px-2 py-0.5 rounded-full text-base border ${(prop.type.kind === 'custom' && prop.type.name === activeBox.name) || (prop.type.kind === 'builtIn' && prop.type.genericArgs?.some(arg => (arg as any).name === activeBox.name)) ? 'bg-slate-700 text-white border-slate-700' : 'bg-white border-slate-200 hover:bg-slate-100'}`}>{activeBox.name}</button>
                     )}
                     {allCustomNames.filter(n => n.toLowerCase().includes(filter.toLowerCase())).map(n => {
                         const active = (prop.type.kind === 'custom' && prop.type.name === n) || (prop.type.kind === 'builtIn' && prop.type.genericArgs?.some(arg => (arg as any).name === n));
                         return (
                             <button key={n} onClick={() => handleTypeSelect(prop, 'custom', n)}
-                                className={`px-2 py-0.5 rounded-full text-[11px] border ${active ? 'bg-slate-700 text-white border-slate-700' : 'bg-white border-slate-200 hover:bg-slate-100'}`}>{n}</button>
+                                className={`font-mono px-2 py-0.5 rounded-full text-base border ${active ? 'bg-slate-700 text-white border-slate-700' : 'bg-white border-slate-200 hover:bg-slate-100'}`}>{n}</button>
+                        );
+                    })}
+                </div>
+            </div>
+            <div className="flex flex-col gap-1 mb-3">
+                <div className="flex items-center justify-between">
+                    <span className='text-sm font-medium text-slate-500'>컨테이너 타입</span>
+                    <button 
+                        onClick={() => {
+                        if (prop.type.kind !== 'builtIn') return;
+                        const args = [...(prop.type.genericArgs || [])];
+                        args.pop();
+                        if (args.length === 0) updateProperty(prop.id, { type: { kind: 'primitive', name: 'any' } });
+                        else updateProperty(prop.id, { type: { ...prop.type, genericArgs: args } });
+                    }} className="px-1.5 py-0 rounded-full text-base border border-slate-200 bg-slate-50 text-slate-600 hover:bg-red-400 hover:text-white">⬅</button>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                    {CONTAINERS.map(t => {
+                        const active = prop.type.kind === 'builtIn' && prop.type.name === t;
+                        return (
+                            <button key={t} onClick={() => handleTypeBuild(prop, t)}
+                                className={`font-mono px-2 py-0.5 rounded-full text-sm border ${active ? 'bg-slate-700 text-white border-slate-700' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'}`}>{t}</button>
                         );
                     })}
                 </div>
             </div>
             <textarea value={prop.comment || ''} onChange={e => updateProperty(prop.id, { comment: e.target.value })}
-                placeholder="주석" className="w-full text-[11px] bg-slate-50 border border-slate-200 rounded p-1 h-24 resize-none outline-none focus:border-slate-300" />
-            <div className="flex gap-2 mt-3 text-[11px]">
-                <button onClick={(e) => { e.stopPropagation(); updateProperty(prop.id, { optional: !prop.optional }); }}
-                    className={`px-2 py-0.5 rounded-full border ${prop.optional ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 border-slate-300 hover:bg-slate-200'}`}>optional</button>
-                <button onClick={(e) => { e.stopPropagation(); updateProperty(prop.id, { readonly: !prop.readonly }); }}
-                    className={`px-2 py-0.5 rounded-full border ${prop.readonly ? 'bg-pink-600 text-white border-pink-600' : 'bg-slate-100 border-slate-300 hover:bg-slate-200'}`}>readonly</button>
-            </div>
+                placeholder="주석" className="w-full text-sm bg-slate-50 border border-slate-200 rounded p-1 h-14 resize-none outline-none focus:border-slate-300" />
         </div>
     );
 
     return (
-        <div className="w-80 flex flex-col rounded-2xl border border-slate-200 bg-white/90 backdrop-blur p-5 z-50 space-y-3" style={{ boxShadow: '0 2px 8px rgba(135,135,135,0.1)' }}>
+        <div className="w-80 flex flex-col max-h-[calc(100vh-2rem)] rounded-2xl border border-slate-200 bg-white/90 backdrop-blur p-5 z-50 space-y-3" style={{ boxShadow: '0 2px 8px rgba(135,135,135,0.1)' }}>
             {/* TypeBoxModel header */}
             <div className="pb-3 border-b border-slate-200 bg-white/70 backdrop-blur">
                 <input
@@ -171,16 +185,16 @@ const InspectorPanel: React.FC = () => {
                 <div className="mt-2 flex gap-1 text-xs">
                     {(['interface', 'type', 'enum', 'alias'] as const).map(k => (
                         <button key={k} onClick={() => updateBox({ kind: k })}
-                            className={`px-2 py-1 rounded border text-[11px] ${activeBox.kind === k ? 'bg-slate-700 text-white border-slate-700' : 'bg-white border-slate-300 hover:bg-slate-100'}`}>{k}</button>
+                            className={`font-mono px-2 py-1 rounded border text-base ${activeBox.kind === k ? 'bg-slate-700 text-white border-slate-700' : 'bg-white border-slate-300 hover:bg-slate-100'}`}>{k}</button>
                     ))}
                 </div>
             </div>
             {!selectedProp &&
-                <textarea value={''}
-                    placeholder="주석" className="m-0 w-full text-[11px] bg-slate-50 border border-slate-200 rounded p-1 h-24 resize-none outline-none focus:border-slate-300" />
+                <textarea  value={activeBox.comment || ''} onChange={e => updateBox({ comment: e.target.value })}
+                    placeholder="주석" className="m-0 w-full text-base bg-slate-50 border border-slate-200 rounded p-1 h-24 resize-none outline-none focus:border-slate-300" />
             }
             {selectedProp && (
-                <div className="flex-1 overflow-auto p-1 space-y-4">
+                <div className="flex-1 overflow-auto space-y-4">
                     {renderPropertyEditor(selectedProp)}
                 </div>
             )}

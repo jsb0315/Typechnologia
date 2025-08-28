@@ -2,6 +2,7 @@
 export type TypeKind = 'interface' | 'type' | 'enum' | 'alias';
 
 // 기본 Type 종류 (TS 프리미티브 + any/unknown 확장)
+export type TypePattern = 'literal' | 'primitive' | 'object';
 export type PrimitiveType = 'string' | 'number' | 'boolean' | 'null' | 'undefined' | 'any' | 'unknown';
 // 빌트인 컨테이너 / 구조 타입 (Generic 은 추후 <T> 표현용 placeholder)
 export type BuiltInType = 'Array' | 'Object' | 'Generic' | 'Tuple' | 'Set' | 'Map';
@@ -15,10 +16,16 @@ export type PropertyType =
   | { kind: 'intersection'; types: PropertyType[] }
   | { kind: 'builtIn'; name: BuiltInType; genericArgs?: PropertyType[] };
 
-
+/** 
+ * 1. ▭ input: object-object
+ * 1. ◻ button: literal-object
+ * 1. ◯○ input-button: literal-primitive
+ * 2. ○ button: primitive-primitive
+ */
 export interface Property {
   id: string;
   name: string;
+  typePattern: TypePattern;
   type: PropertyType; // 구조화된 타입 표현
   optional?: boolean;
   readonly?: boolean;
@@ -58,7 +65,6 @@ export interface SchemaActions {
   updatePosition: (id: string, x: number, y: number) => void;
   // 단일 선택 혹은 additive 토글 (Ctrl/Meta 클릭 시 additive=true)
   select: (id: string | null, options?: { additive?: boolean }) => void;
-  selectProperty?: (propId: string | null) => void;
   updateBox: (id: string, partial: Partial<Omit<TypeBoxModel, 'id' | 'createdAt'>>) => void;
   removeBox: (id: string) => void;
   removeBoxes: (ids: string[]) => void;
@@ -77,25 +83,7 @@ export interface SchemaActionsContext {
   addType: (partial?: Partial<Pick<TypeBoxModel, 'name' | 'kind' | 'properties'>>) => TypeBoxModel;
   updatePosition: (id: string, x: number, y: number) => void;
   select: (id: string | null, options?: { additive?: boolean }) => void;
-  selectProperty?: (propId: string | null) => void;
   updateBox: (id: string, partial: Partial<Omit<TypeBoxModel, 'id' | 'createdAt'>>) => void;
   removeBox: (id: string) => void;
   removeBoxes: (ids: string[]) => void;
 }
-
-// New split-value types (버전/updatedAt 포함 실시간 변경 최소화 목적)
-export interface SchemaStateValue {
-  boxes: Record<string, TypeBoxModel>;
-  order: string[];
-  selection: string[];
-  propertySelection?: string | null; // 선택된 Property id (단일)
-  version: number;
-  updatedAt: number;
-}
-
-export interface SchemaActionsValue extends SchemaActions {}
-
-// augment actions at runtime (extended in hook)
-declare module './TypeSchema' {}
-
-export interface SchemaStore { state: SchemaStateValue; actions: SchemaActionsValue }

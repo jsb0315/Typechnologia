@@ -1,6 +1,7 @@
-import type { PropertyType, PrimitiveType, BuiltInType } from '../../types/TypeSchema';
+import type { TypePattern, PropertyType, PrimitiveType, BuiltInType } from '../../types/TypeSchema';
 
-export const PRIMITIVES: PrimitiveType[] = ['string', 'boolean', 'null', 'number', 'any', 'unknown', 'undefined'];
+export const TYPEPATTERN: TypePattern[] = ['literal', 'primitive', 'object'];
+export const PRIMITIVES: PrimitiveType[] = ['string', 'boolean', 'null', 'any', 'number', 'unknown', 'undefined'];
 export const CONTAINERS: BuiltInType[] = ['Array', 'Tuple', 'Set', 'Map', 'Object'];
 
 export function propertyTypeToLabel(t: PropertyType): string {

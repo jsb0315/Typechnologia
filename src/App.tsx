@@ -55,10 +55,10 @@ function App() {
             gridTemplateColumns: 'auto 2fr auto',
             gridTemplateRows: 'auto auto auto',
           }}> */}
-          <div className='absolute w-fit h-full left-4 top-4 z-40'>
+          <div className='absolute w-fit left-4 top-4 z-40'>
             <FloatingDrawer />
           </div>
-          <div className='absolute w-fit h-full right-4 top-4 pb-8 z-40'>
+          <div className='absolute w-fit right-4 top-4 z-40'>
             <InspectorPanel />
           </div>
         {/* </div> */}

@@ -72,9 +72,9 @@ export function useSchemaGraph(): SchemaStore {
       name: partial?.name || `NewType${graph.order.length + 1}`,
       kind: partial?.kind || 'type',
       properties: (partial?.properties ? normalizeProps(partial.properties as any) : [
-      { id: nanoid(), name: 'id', type: { kind: 'primitive', name: 'string' } },
-      { id: nanoid(), name: 'name', type: { kind: 'primitive', name: 'string' } },
-      { id: nanoid(), name: 'test', type: { kind: 'custom', name: 'hello' } }
+      { id: nanoid(), name: 'id', typePattern:'object', type: { kind: 'primitive', name: 'string' } },
+      { id: nanoid(), name: 'name', typePattern:'object', type: { kind: 'primitive', name: 'string' } },
+      { id: nanoid(), name: 'test', typePattern:'object', type: { kind: 'custom', name: 'hello' } }
       ]),
       position: centerPos,
       createdAt: now(),
