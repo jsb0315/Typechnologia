@@ -1,46 +1,44 @@
 // 기본 데이터 모델 (프로토타입)
 export type TypeKind = 'interface' | 'type' | 'enum' | 'alias';
 
-// 기본 Type 종류 (TS 프리미티브 + any/unknown 확장)
-export type TypePattern = 'literal' | 'primitive' | 'object';
-export type PrimitiveType = 'string' | 'number' | 'boolean' | 'null' | 'undefined' | 'any' | 'unknown';
-// 빌트인 컨테이너 / 구조 타입 (Generic 은 추후 <T> 표현용 placeholder)
-export type BuiltInType = 'Array' | 'Object' | 'Generic' | 'Tuple' | 'Set' | 'Map';
-export type CustomType = { name: string; typeDef: any }; // interface/type 이름 및 정의
-// Property Type 규칙
-// PropertyType: UI <-> TS 소스코드 양방향 변환을 위한 구조화 타입 정의
-export type PropertyType =
-  | { kind: 'primitive'; name: PrimitiveType }
-  | { kind: 'custom'; name: string }
-  | { kind: 'union'; types: PropertyType[] }
-  | { kind: 'intersection'; types: PropertyType[] }
-  | { kind: 'builtIn'; name: BuiltInType; genericArgs?: PropertyType[] };
+export type typeBoxID = `_${string}`;
+
+// New schema design (next-gen property modeling)
+export type KeyKind = 'literal' | 'index';
+export type ValueKind = 'primitive' | 'object' | 'array' | 'tuple' | 'union' | 'set' | 'map';
+// export type BuiltInType = 'Array' | 'Object' | 'Generic' | 'Tuple' | 'Set' | 'Map';
+export type PrimitiveType = 'string' | 'number' | 'boolean' | 'null' | 'undefined' | 'any' | 'unknown' | typeBoxID;
 
 /** 
- * 1. ▭ input: object-object
- * 1. ◻ button: literal-object
+ * 1. ▭ input: literal-object
+ * 1. ◻ button: index-object
  * 1. ◯○ input-button: literal-primitive
  * 2. ○ button: primitive-primitive
  */
+// Unified Property interface (augmented to support both legacy and new design)
 export interface Property {
+  // Core identifiers
   id: string;
-  name: string;
-  typePattern: TypePattern;
-  type: PropertyType; // 구조화된 타입 표현
-  optional?: boolean;
-  readonly?: boolean;
-  comment?: string;
+  // New schema fields (coexist for migration):
+  description?: string;     // new description (mirrors comment)
+  optional?: boolean;       // optional flag
+  readonly?: boolean;       // readonly flag
+  // key
+  keyKind: KeyKind; key?: string;
+  // containers value
+  // object/union/map value
+  valueKind: ValueKind; items?: Property[];
+  // primitive/array/tuple/set value, `_{string}`: custom Type
+  valueType: PrimitiveType[];
+  
 }
 
 export interface TypeBoxModel {
-  id: string;
+  id: typeBoxID;
   name: string;
   kind: TypeKind;
   properties: Property[];
   position: { x: number; y: number };
-  extends?: string[];
-  unionTypes?: string[];       // type A = B | C
-  intersectionTypes?: string[]; // type A = B & C
   comment?: string;
   createdAt: number;
   updatedAt: number;
@@ -65,6 +63,7 @@ export interface SchemaActions {
   updatePosition: (id: string, x: number, y: number) => void;
   // 단일 선택 혹은 additive 토글 (Ctrl/Meta 클릭 시 additive=true)
   select: (id: string | null, options?: { additive?: boolean }) => void;
+  selectProperty?: (propId: string | null) => void;
   updateBox: (id: string, partial: Partial<Omit<TypeBoxModel, 'id' | 'createdAt'>>) => void;
   removeBox: (id: string) => void;
   removeBoxes: (ids: string[]) => void;
@@ -83,7 +82,25 @@ export interface SchemaActionsContext {
   addType: (partial?: Partial<Pick<TypeBoxModel, 'name' | 'kind' | 'properties'>>) => TypeBoxModel;
   updatePosition: (id: string, x: number, y: number) => void;
   select: (id: string | null, options?: { additive?: boolean }) => void;
+  selectProperty?: (propId: string | null) => void;
   updateBox: (id: string, partial: Partial<Omit<TypeBoxModel, 'id' | 'createdAt'>>) => void;
   removeBox: (id: string) => void;
   removeBoxes: (ids: string[]) => void;
 }
+
+// New split-value types (버전/updatedAt 포함 실시간 변경 최소화 목적)
+export interface SchemaStateValue {
+  boxes: Record<string, TypeBoxModel>;
+  order: string[];
+  selection: string[];
+  propertySelection?: string | null; // 선택된 Property id (단일)
+  version: number;
+  updatedAt: number;
+}
+
+export interface SchemaActionsValue extends SchemaActions {}
+
+// augment actions at runtime (extended in hook)
+declare module './TypeSchema' {}
+
+export interface SchemaStore { state: SchemaStateValue; actions: SchemaActionsValue }

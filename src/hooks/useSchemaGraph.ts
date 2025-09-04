@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, useMemo } from 'react';
-import type { SchemaGraph, TypeBoxModel, Property, SchemaStateValue, SchemaActionsValue, SchemaStore } from '../types/TypeSchema';
+import type { SchemaGraph, TypeBoxModel, SchemaStateValue, SchemaActionsValue, SchemaStore } from '../types/TypeSchema';
 import { nanoid } from '../utils/id';
 
 const now = () => Date.now();
@@ -39,21 +39,22 @@ export function useSchemaGraph(): SchemaStore {
     });
     dirty.current = true;
   }, []);
+
   // 레거시(Property.type 이 string) -> 구조화 PropertyType 변환
-  const normalizeProps = (props?: Property[]): Property[] => {
-    if (!props) return [];
-    return props.map(p => {
-      const t: any = p.type as any;
-      if (typeof t === 'string') {
-        const primitiveSet = new Set(['string','number','boolean','null','undefined','any','unknown']);
-        const structured = primitiveSet.has(t)
-          ? { kind: 'primitive', name: t }
-          : { kind: 'custom', name: t };
-        return { ...p, type: structured } as Property;
-      }
-      return p;
-    });
-  };
+  // const normalizeProps = (props?: Property[]): Property[] => {
+  //   if (!props) return [];
+  //   return props.map(p => {
+  //     const t: any = p.type as any;
+  //     if (typeof t === 'string') {
+  //       const primitiveSet = new Set(['string','number','boolean','null','undefined','any','unknown']);
+  //       const structured = primitiveSet.has(t)
+  //         ? { kind: 'primitive', name: t }
+  //         : { kind: 'custom', name: t };
+  //       return { ...p, type: structured } as Property;
+  //     }
+  //     return p;
+  //   });
+  // };
 
   const addType = useCallback((partial?: Partial<Pick<TypeBoxModel, 'name' | 'kind' | 'properties'>>) => {
     const id = nanoid();
@@ -71,15 +72,36 @@ export function useSchemaGraph(): SchemaStore {
       id,
       name: partial?.name || `NewType${graph.order.length + 1}`,
       kind: partial?.kind || 'type',
-      properties: (partial?.properties ? normalizeProps(partial.properties as any) : [
-      { id: nanoid(), name: 'id', typePattern:'object', type: { kind: 'primitive', name: 'string' } },
-      { id: nanoid(), name: 'name', typePattern:'object', type: { kind: 'primitive', name: 'string' } },
-      { id: nanoid(), name: 'test', typePattern:'object', type: { kind: 'custom', name: 'hello' } }
+      properties: (partial?.properties ? partial.properties : [
+        {
+          id: nanoid(),
+          keyKind: 'literal',
+          key: 'id',
+          valueKind: 'primitive',
+          valueType: ['string'],
+          optional: false,
+          readonly: true,
+          description: 'User primary id'
+        },
+        {
+          id: nanoid(),
+          keyKind: 'literal',
+          key: 'age',
+          valueKind: 'primitive',
+          valueType: ['number'],
+          optional: true
+        },
+        {
+          id: nanoid(),
+          keyKind: 'literal',
+          key: 'active',
+          valueKind: 'primitive',
+          valueType: ['boolean']
+        }
       ]),
       position: centerPos,
       createdAt: now(),
       updatedAt: now(),
-      extends: []
     };
     setGraph(g => ({
       ...g,

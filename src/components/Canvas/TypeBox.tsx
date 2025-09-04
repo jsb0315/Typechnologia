@@ -1,7 +1,8 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import type { TypeBoxModel, Property, TypeKind } from '../../types/TypeSchema';
 import { useSchema } from '../../App';
-import { propertyTypeToLabel } from './typeUtils';
+import { propertyValueLabel } from './typeUtils';
+import { useTypeIdToName } from '../../hooks/useAllCustomNames';
 
 interface TypeBoxProps {
   data: TypeBoxModel;
@@ -21,6 +22,7 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
   // property editing moved to InspectorPanel
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [typeString, setTypeString] = useState<Record<string, string>>({});
+  const idNameMap = useTypeIdToName();
 
   // 선택 변경 시 UI 패널 닫기
   useEffect(() => {
@@ -31,10 +33,10 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
   useEffect(() => {
     const newTypeString: Record<string, string> = {};
     data.properties.forEach(p => {
-      newTypeString[p.id] = propertyTypeToLabel(p.type as any);
+      newTypeString[p.id] = propertyValueLabel(p, idNameMap);
     });
     setTypeString(newTypeString);
-  }, [data.properties]);
+  }, [data.properties, idNameMap]);
 
   // Delete 키 제거 로직은 Canvas에서 다중 선택과 함께 처리
 
@@ -83,11 +85,11 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
   };
 
   const handlePropNameChange = (id: string, value: string) => {
-    commitProp(id, { name: value });
+    commitProp(id, { key: value });
   };
 
   const addProperty = () => {
-    const newProp: Property = { id: Math.random().toString(36).slice(2), name: 'field', typePattern: 'object', type: { kind: 'primitive', name: 'string' } };
+    const newProp: Property = { id: Math.random().toString(36).slice(2), key: 'field', optional: false, readonly: false, keyKind: 'literal', valueKind: 'primitive', valueType: ['string'] };
     const updated = [...data.properties, newProp];
     schema.updateBox(data.id, { properties: updated });
     setExpandedProp(newProp.id);
@@ -127,6 +129,15 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
       className={`absolute bg-slate-50/80 backdrop-blur rounded-xl shadow-lg border ${border} cursor-move select-none px-6 pt-5.5 pb-6.5 transition flex flex-col items-center`}
       style={{ left: data.position.x, top: data.position.y, minWidth: 200, zIndex: selected ? 30 : 10 }}
     >
+      <div
+        className="absolute right-0 top-0 max-h-full translate-x-full overflow-auto rounded-lg bg-slate-900/80 text-emerald-200 p-2 font-mono text-base leading-snug shadow-lg border border-slate-700/60 backdrop-blur-sm"
+        style={{ scrollbarWidth: 'thin' }}
+        onMouseDown={e => e.stopPropagation()}
+      >
+        <code className="whitespace-pre">
+    {JSON.stringify(data, null, 2)}
+        </code>
+      </div>
       <button
         className={`absolute -top-3.5 w-7 h-7 rounded-full bg-slate-50 border border-slate-300 text-slate-600 hover:bg-red-400 hover:text-slate-50 hover:border-slate-200 transition-all shadow font-mono  ${selected ? 'opacity-100' : 'opacity-0 hidden'}`}
         onClick={(e) => {
@@ -163,7 +174,7 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
         {data.properties.map(p => {
           const isExpanded = expandedProp === p.id;
           const isSelectedProp = schema.propertySelection === p.id;
-          // setTypeString(prev => ({ ...prev, [p.id]: propertyTypeToLabel(p.type as any) }));
+          const typeLabel = typeString[p.id];
           return (
             <div key={p.id}
               onMouseEnter={() => setHoveredId(p.id)}
@@ -183,10 +194,10 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
                   </span>
                 </div>
                 <input
-                  value={p.name}
+                  value={p.key}
                   onChange={e => handlePropNameChange(p.id, e.target.value)}
                   className="bg-transparent text-lg font-mono font-normal border-b border-transparent focus:border-slate-400 focus:outline-none mx-1"
-                  style={{ width: `${Math.max(p.name.length, 2) + 0.3}ch` }}
+                  style={{ width: `${Math.max(p.key ? p.key.length : 0, 2) + 0.3}ch` }}
                 />
                 <div className='relative overflow-visible'>
                   <button
@@ -194,13 +205,13 @@ const TypeBox: React.FC<TypeBoxProps> = ({ data, selected, onDrag, onSelect }) =
                     className="absolute left-0 -top-2 text-sm pl-2 pr-2.5 py-1 -tracking-wider rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300 shadow whitespace-nowrap border border-slate-400/40 transition-all"
                     style={{ boxShadow: isSelectedProp ? '0 0px 8px rgba(60,60,100,0.3)' : '0 0px 8px rgba(60,60,100,0.05)' }}
                   >
-                    {typeString[p.id]}
+                    {typeLabel}
                   </button>
                 </div>
               </div>
               {/* Inspector 로 이동됨 */}
               <span className="text-transparent font-mono mr-4">
-                    {typeString[p.id]}</span>
+                    {typeLabel}</span>
               {selected && (
                 <button
                   className={`absolute -right-2.5 w-6 h-6 flex items-center justify-center rounded-full border border-slate-200 bg-red-300 text-slate-100 hover:bg-red-500 transition-all shadow font-mono  ${hoveredId === p.id ? '' : 'opacity-0'}`}
@@ -246,7 +257,7 @@ export default React.memo(TypeBox, (a, b) => {
   if (ap !== bp) return false;
   for (let i = 0; i < ap.length; i++) {
     const p1 = ap[i]; const p2 = bp[i];
-    if (p1.id !== p2.id || p1.name !== p2.name || !!p1.optional !== !!p2.optional) return false;
+    if (p1.id !== p2.id || p1.key !== p2.key || !!p1.optional !== !!p2.optional) return false;
   }
   return true;
 });

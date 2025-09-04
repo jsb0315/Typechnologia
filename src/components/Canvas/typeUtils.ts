@@ -1,60 +1,19 @@
-import type { TypePattern, PropertyType, PrimitiveType, BuiltInType } from '../../types/TypeSchema';
+import type { KeyKind, PrimitiveType, ValueKind, Property } from '../../types/TypeSchema';
 
-export const TYPEPATTERN: TypePattern[] = ['literal', 'primitive', 'object'];
+export const KEYKIND: KeyKind[] = ['literal', 'index'];
 export const PRIMITIVES: PrimitiveType[] = ['string', 'boolean', 'null', 'any', 'number', 'unknown', 'undefined'];
-export const CONTAINERS: BuiltInType[] = ['Array', 'Tuple', 'Set', 'Map', 'Object'];
+export const CONTAINERS: ValueKind[] = ['array', 'tuple', 'set', 'union', 'object'];
 
-export function propertyTypeToLabel(t: PropertyType): string {
-  switch (t.kind) {
-    case 'primitive':
-    case 'custom':
-      return t.name;
-    case 'union':
-      return t.types.map(propertyTypeToLabel).join(' | ');
-    case 'intersection':
-      return t.types.map(propertyTypeToLabel).join(' & ');
-    case 'builtIn': {
-      const args = t.genericArgs?.map(propertyTypeToLabel) ?? [];
-      switch (t.name) {
-        case 'Array':
-          return args.length > 1 ? `(${args.join(' | ')})[]` : (args[0] ? args[0] + '[]' : 'any[]');
-        case 'Tuple':
-          return `[${args.join(', ')}]`;
-        case 'Set':
-          return `Set<${args.length ? args[0] : 'unknown'}>`;
-        case 'Map':
-          return `Map<${args.length >= 2 ? `${args[0]}, ${args[1]}` : 'unknown, unknown'}>`;
-        case 'Object':
-          return `Record<${args.length >= 2 ? `${args[0]}, ${args[1]}` : 'string, unknown'}>`;
-        default:
-          return t.name;
-      }
-    }
-    default:
-      return '';
-  }
-}
+// export function makeLeafType(name: string): PropertyType {
+//   if (PRIMITIVES.includes(name as any)) return { kind: 'primitive', name: name as any };
+//   return { kind: 'custom', name };
+// }
 
-export function makeLeafType(name: string): PropertyType {
-  if (PRIMITIVES.includes(name as any)) return { kind: 'primitive', name: name as any };
-  return { kind: 'custom', name };
-}
-
-export function makeBuiltInType(name: 'Array'|'Tuple'|'Set', selectedNames: string[]): PropertyType {
-  const survived: string[] = name === 'Array' ? Array.from(new Set(selectedNames)) : name === 'Set' ? [selectedNames[0]] : selectedNames;
-  if (selectedNames.length === 0) return { kind: 'builtIn', name, genericArgs: [{ kind: 'primitive', name: 'any' }] };
-  return { kind: 'builtIn', name, genericArgs: survived.map(n => makeLeafType(n)) };
-}
-
-export function extractSimpleTypeNames(t: PropertyType): string[] {
-  if (t.kind === 'primitive' || t.kind === 'custom') return [t.name];
-  if (t.kind === 'builtIn') {
-    return (t.genericArgs ?? [])
-      .filter(a => a.kind === 'primitive' || a.kind === 'custom')
-      .map(a => a.name);
-  }
-  return [];
-}
+// export function makeBuiltInType(name: 'Array'|'Tuple'|'Set', selectedNames: string[]): PropertyType {
+//   const survived: string[] = name === 'Array' ? Array.from(new Set(selectedNames)) : name === 'Set' ? [selectedNames[0]] : selectedNames;
+//   if (selectedNames.length === 0) return { kind: 'builtIn', name, genericArgs: [{ kind: 'primitive', name: 'any' }] };
+//   return { kind: 'builtIn', name, genericArgs: survived.map(n => makeLeafType(n)) };
+// }
 
 export function isInteractive(el: HTMLElement | null): boolean {
   if (!el) return false;
@@ -65,4 +24,31 @@ export function isInteractive(el: HTMLElement | null): boolean {
   if (role && ['button', 'textbox', 'checkbox', 'switch', 'radio', 'combobox'].includes(role)) return true;
   if (el.closest('input,textarea,button,select,[contenteditable="true"],[role="textbox"],[role="button"]')) return true;
   return false;
+}
+
+// New schema label generator (fallbacks to legacy type if present)
+// Provide optional id->name map (idNameMap) so that entries in valueType which are internal IDs are displayed as the referenced box name.
+export function propertyValueLabel(p: Property, idNameMap?: Record<string, string>): string {
+  const valueType = (p.valueType || []).map(v => idNameMap && idNameMap[v] ? idNameMap[v] : v);
+
+  switch (p.valueKind) {
+    case 'primitive':
+      return valueType[0] || 'primitive';
+    case 'object':
+      return '{…}';
+    case 'array': {
+      if (valueType.length) {
+        return valueType.length === 1 ? `${valueType[0]}[]` : `(${valueType.join(' | ')})[]`;
+      }
+      return '[]';
+    }
+    case 'tuple':
+      return '[' + (valueType.join(', ') || '') + ']';
+    case 'set':
+      return `Set<${valueType.join(' | ')}>`;
+    case 'union':
+      return (p.items?.map(o => propertyValueLabel(o)).join(' | ')) || 'union';
+    default:
+      return p.valueKind;
+  }
 }
