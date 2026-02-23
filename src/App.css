@@ -1,0 +1,160 @@
+@import "tailwindcss";
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 16px;
+  background: #f7f8fc;
+  color: #111827;
+}
+
+.app-header {
+  margin-bottom: 16px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.app-header p {
+  margin: 4px 0 0;
+}
+
+.source-indicator {
+  font-size: 0.88rem;
+  color: #334155;
+}
+
+.panel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: stretch;
+  height: calc(100vh - 120px);
+}
+
+.panel {
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.panel-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.code-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.code-panel .monaco-editor,
+.code-panel .monaco-editor-background,
+.code-panel .overflow-guard {
+  border-radius: 0;
+}
+
+.diagram-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.diagram-canvas {
+  position: relative;
+  margin: 14px;
+}
+
+.edge-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  color: #64748b;
+}
+
+.type-node-position {
+  position: absolute;
+  z-index: 1;
+}
+
+.type-node-card {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.type-node-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.type-kind {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #475569;
+  background: #e2e8f0;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.node-name-input {
+  flex: 1;
+}
+
+.extends-label {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.properties-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.property-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.property-row button,
+.add-property {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #1f2937;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.add-property {
+  margin-top: 8px;
+}
+
+.type-node-card input {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 6px;
+  min-width: 0;
+}
